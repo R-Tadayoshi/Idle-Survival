@@ -54,10 +54,9 @@ function encodePng(size, rgba) {
 }
 
 // ── Icon artwork ────────────────────────────────────────────────────────────
-const BG_CENTER = [16, 30, 46];
-const BG_EDGE = [6, 10, 17];
-const CYAN = [85, 226, 255];
-const AMBER = [255, 178, 84];
+const BG_CENTER = [8, 8, 8];
+const BG_EDGE = [0, 0, 0];
+const ACCENT = [0, 229, 199];
 
 const mix = (a, b, t) => a + (b - a) * t;
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
@@ -91,7 +90,7 @@ function drawIcon(size, { maskable }) {
         ang = (ang + Math.PI * 2.25) % (Math.PI * 2); // rotate so edge sits at 45°
         const WEDGE = Math.PI * 0.55;
         if (ang < WEDGE && d < R) {
-          rgb = blend(rgb, CYAN, 0.28 * (1 - ang / WEDGE) * (0.4 + 0.6 * (d / R)));
+          rgb = blend(rgb, ACCENT, 0.28 * (1 - ang / WEDGE) * (0.4 + 0.6 * (d / R)));
         }
         // Concentric rings.
         for (const [rr, alpha] of [
@@ -101,18 +100,18 @@ function drawIcon(size, { maskable }) {
         ]) {
           const w = (rr === R ? 5 : 3) * px;
           const dist = Math.abs(d - rr);
-          if (dist < w) rgb = blend(rgb, CYAN, alpha * (1 - dist / w));
+          if (dist < w) rgb = blend(rgb, ACCENT, alpha * (1 - dist / w));
         }
         // Crosshair lines.
         if (d < R) {
           const lw = 1.6 * px;
-          if (Math.abs(dx) < lw || Math.abs(dy) < lw) rgb = blend(rgb, CYAN, 0.35);
+          if (Math.abs(dx) < lw || Math.abs(dy) < lw) rgb = blend(rgb, ACCENT, 0.35);
         }
         // Center hub.
-        if (d < 9 * px) rgb = blend(rgb, CYAN, 0.95 * (1 - d / (9 * px)) + 0.4);
-        // Contact blip (amber) on the second ring, inside the sweep.
+        if (d < 9 * px) rgb = blend(rgb, ACCENT, 0.95 * (1 - d / (9 * px)) + 0.4);
+        // Contact blip on the second ring, inside the sweep.
         const bd = Math.hypot(dx - R * 0.47, dy + R * 0.47);
-        if (bd < 16 * px) rgb = blend(rgb, AMBER, clamp01(1.15 - bd / (16 * px)));
+        if (bd < 16 * px) rgb = blend(rgb, ACCENT, clamp01(1.15 - bd / (16 * px)));
       }
 
       const i = (y * size + x) * 4;

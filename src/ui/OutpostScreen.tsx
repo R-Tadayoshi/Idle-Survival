@@ -2,16 +2,15 @@
  * Phase 0 placeholder outpost screen: real HUD layout fed by the real store
  * and save, with the systems that arrive in later phases shown as offline.
  */
-import type { CSSProperties } from 'react';
 import { useGameStore } from '../state/store';
 import { RadarGlyph } from './RadarGlyph';
 import type { ResourceId } from '../engine/types';
 
-const HUD_RESOURCES: Array<{ id: ResourceId; icon: string; label: string; accent: string }> = [
-  { id: 'scrap', icon: '🔩', label: 'Scrap', accent: '#c9915a' },
-  { id: 'ore', icon: '⛏️', label: 'Ore', accent: '#7fa8cc' },
-  { id: 'rations', icon: '🥫', label: 'Rations', accent: '#7ed9a0' },
-  { id: 'exotic', icon: '🔷', label: 'Exotic', accent: '#b48cff' },
+const HUD_RESOURCES: Array<{ id: ResourceId; icon: string; label: string }> = [
+  { id: 'scrap', icon: '🔩', label: 'Scrap' },
+  { id: 'ore', icon: '⛏️', label: 'Ore' },
+  { id: 'rations', icon: '🥫', label: 'Rations' },
+  { id: 'exotic', icon: '🔷', label: 'Exotic' },
 ];
 
 export function OutpostScreen() {
@@ -35,16 +34,11 @@ export function OutpostScreen() {
       </header>
 
       <section className="hud">
-        {HUD_RESOURCES.map(({ id, icon, label, accent }) => {
+        {HUD_RESOURCES.map(({ id, icon, label }) => {
           const { amount, cap } = game.resources[id];
           const pct = Math.min(100, Math.round((amount / cap) * 100));
           return (
-            <div
-              className="hud-cell"
-              key={id}
-              title={label}
-              style={{ '--accent': accent } as CSSProperties}
-            >
+            <div className="hud-cell" key={id} title={label}>
               <span className="hud-icon">{icon}</span>
               <div className="hud-values">
                 <span className="hud-amount">{Math.floor(amount)}</span>
@@ -58,7 +52,7 @@ export function OutpostScreen() {
         })}
       </section>
 
-      <section className="radar panel bracket" aria-label="Threat radar">
+      <section className="radar panel" aria-label="Threat radar">
         <div className="radar-head">
           <RadarGlyph size={36} dim />
           <div>
@@ -72,7 +66,7 @@ export function OutpostScreen() {
       </section>
 
       <main className="module-grid">
-        <div className="module-tile placeholder panel bracket">
+        <div className="module-tile placeholder panel">
           <span className="module-tile-icon">🏗️</span>
           <span>Outpost founded</span>
           <span className="module-tile-sub">Construction systems come online in Phase 1</span>
