@@ -2,16 +2,20 @@
    amber. Portrait-first, iPhone safe areas respected, large tap targets. */
 
 :root {
-  --bg: #070d14;
+  --bg-void: #05080d;
+  --bg-deep: #0a121c;
+  --bg-panel: rgba(16, 27, 40, 0.72);
+  --bg-panel-solid: #101b28;
   --bg-raised: #0d1826;
-  --bg-panel: #101f31;
-  --line: #1d3048;
-  --cyan: #55e2ff;
+  --line: rgba(85, 226, 255, 0.14);
+  --line-strong: rgba(85, 226, 255, 0.32);
+  --cyan: #5ee8ff;
   --cyan-dim: #2e8aa6;
-  --amber: #ffb254;
-  --text: #cfe6f2;
-  --text-dim: #6d8ba0;
-  --danger: #ff5d5d;
+  --cyan-soft: rgba(94, 232, 255, 0.1);
+  --amber: #ffb454;
+  --text: #e2eef7;
+  --text-dim: #7d97ab;
+  --danger: #ff5d6c;
 }
 
 * {
@@ -23,9 +27,9 @@ html,
 body {
   margin: 0;
   height: 100%;
-  background: var(--bg);
+  background: var(--bg-void);
   color: var(--text);
-  font-family: -apple-system, 'SF Pro', 'Segoe UI', Roboto, system-ui, sans-serif;
+  font-family: -apple-system, 'SF Pro Text', 'Segoe UI', Roboto, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   overscroll-behavior: none;
   user-select: none;
@@ -36,6 +40,33 @@ body {
   height: 100%;
 }
 
+/* ── Radar glyph (brand mark + live status indicator) ───────────────────── */
+.radar-glyph {
+  color: var(--cyan);
+  flex-shrink: 0;
+}
+
+.radar-glyph-dim {
+  color: var(--text-dim);
+}
+
+.radar-glyph-spin .radar-glyph-sweep {
+  transform-origin: 16px 16px;
+  animation: radar-spin 3s linear infinite;
+}
+
+@keyframes radar-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .radar-glyph-spin .radar-glyph-sweep {
+    animation: none;
+  }
+}
+
 /* ── Boot splash ─────────────────────────────────────────────────────────── */
 .boot-screen {
   height: 100%;
@@ -43,11 +74,15 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 14px;
+  background:
+    radial-gradient(circle at 50% 40%, rgba(94, 232, 255, 0.08), transparent 60%),
+    var(--bg-void);
 }
 
 .boot-title {
-  font-size: 28px;
+  font-size: 26px;
+  font-weight: 600;
   letter-spacing: 0.45em;
   padding-left: 0.45em; /* optically recenter the tracked-out text */
   color: var(--cyan);
@@ -55,8 +90,9 @@ body {
 
 .boot-sub {
   color: var(--text-dim);
-  font-size: 13px;
+  font-size: 12px;
   letter-spacing: 0.15em;
+  text-transform: uppercase;
 }
 
 /* ── Outpost layout ──────────────────────────────────────────────────────── */
@@ -64,78 +100,177 @@ body {
   height: 100%;
   display: flex;
   flex-direction: column;
+  background:
+    repeating-linear-gradient(0deg, rgba(94, 232, 255, 0.025) 0 1px, transparent 1px 32px),
+    repeating-linear-gradient(90deg, rgba(94, 232, 255, 0.025) 0 1px, transparent 1px 32px),
+    radial-gradient(ellipse 120% 60% at 50% -10%, rgba(94, 232, 255, 0.07), transparent 55%),
+    radial-gradient(ellipse 100% 60% at 50% 110%, rgba(94, 232, 255, 0.05), transparent 60%),
+    var(--bg-void);
   padding-top: env(safe-area-inset-top);
   padding-left: env(safe-area-inset-left);
   padding-right: env(safe-area-inset-right);
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/* ── Top brand bar ───────────────────────────────────────────────────────── */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px 8px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.28em;
+  color: var(--text);
+}
+
+.topbar-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Resource HUD ────────────────────────────────────────────────────────── */
 .hud {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
-  padding: 10px 12px;
-  background: var(--bg-raised);
-  border-bottom: 1px solid var(--line);
+  gap: 8px;
+  padding: 4px 12px 10px;
 }
 
 .hud-cell {
   display: flex;
-  align-items: baseline;
-  justify-content: center;
-  gap: 3px;
-  padding: 8px 4px;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 6px 8px;
   background: var(--bg-panel);
+  backdrop-filter: blur(10px) saturate(140%);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
   border: 1px solid var(--line);
-  border-radius: 10px;
-  font-variant-numeric: tabular-nums;
+  border-top: 2px solid color-mix(in srgb, var(--accent) 70%, transparent);
+  border-radius: 12px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.2) inset;
 }
 
 .hud-icon {
-  font-size: 14px;
+  font-size: 15px;
+}
+
+.hud-values {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+  font-variant-numeric: tabular-nums;
 }
 
 .hud-amount {
   font-weight: 600;
   font-size: 15px;
+  color: var(--text);
 }
 
 .hud-cap {
   color: var(--text-dim);
-  font-size: 11px;
+  font-size: 10px;
+}
+
+.hud-bar {
+  width: 100%;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.hud-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 80%, transparent);
+  transition: width 0.4s ease;
+}
+
+/* ── Shared glass-panel + sci-fi corner-bracket treatment ───────────────── */
+.panel {
+  background: var(--bg-panel);
+  backdrop-filter: blur(10px) saturate(140%);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+.bracket {
+  position: relative;
+}
+
+.bracket::before,
+.bracket::after {
+  content: '';
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+.bracket::before {
+  top: -1px;
+  left: -1px;
+  border-top: 2px solid var(--cyan-dim);
+  border-left: 2px solid var(--cyan-dim);
+  border-radius: 14px 0 0 0;
+}
+
+.bracket::after {
+  bottom: -1px;
+  right: -1px;
+  border-bottom: 2px solid var(--cyan-dim);
+  border-right: 2px solid var(--cyan-dim);
+  border-radius: 0 0 14px 0;
 }
 
 /* ── Radar / threat ticker ───────────────────────────────────────────────── */
 .radar {
-  margin: 12px;
-  padding: 14px 16px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background:
-    radial-gradient(circle at 12% 50%, rgba(85, 226, 255, 0.07), transparent 60%),
-    var(--bg-raised);
+  margin: 6px 12px 12px;
+  padding: 16px;
+}
+
+.radar-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
 }
 
 .radar-status {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
+  font-size: 12px;
+  font-weight: 600;
   letter-spacing: 0.2em;
   color: var(--text-dim);
 }
 
 .radar-dot {
-  width: 9px;
-  height: 9px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background: var(--text-dim);
-  box-shadow: 0 0 8px rgba(109, 139, 160, 0.6);
+  box-shadow: 0 0 8px rgba(125, 151, 171, 0.6);
 }
 
 .radar-hint {
-  margin: 8px 0 0;
+  margin: 6px 0 0;
   font-size: 13px;
+  line-height: 1.4;
   color: var(--text-dim);
 }
 
@@ -157,15 +292,23 @@ body {
   justify-content: center;
   gap: 6px;
   text-align: center;
-  padding: 12px;
-  border-radius: 14px;
-  border: 1px solid var(--line);
-  background: var(--bg-panel);
+  padding: 14px;
   font-size: 14px;
+  transition: transform 0.15s ease;
+}
+
+.module-tile:active {
+  transform: scale(0.97);
 }
 
 .module-tile-icon {
   font-size: 26px;
+  filter: drop-shadow(0 0 6px rgba(94, 232, 255, 0.35));
+}
+
+.module-tile-icon.dim {
+  filter: none;
+  opacity: 0.5;
 }
 
 .module-tile-sub {
@@ -175,16 +318,17 @@ body {
 
 .module-tile.empty {
   background: transparent;
-  border-style: dashed;
-  opacity: 0.35;
+  border: 1px dashed var(--line);
+  border-radius: 14px;
+  opacity: 0.6;
 }
 
 /* ── Status bar ──────────────────────────────────────────────────────────── */
 .status-bar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  justify-content: center;
+  gap: 18px;
   padding: 10px 14px;
   font-size: 12px;
   color: var(--text-dim);
