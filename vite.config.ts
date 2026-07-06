@@ -2,7 +2,12 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
+// GitHub Pages serves this repo at /Idle-Survival/, not the domain root. The
+// deploy workflow sets GH_PAGES=true; local dev/build/preview stay at '/'.
+const base = process.env.GH_PAGES === 'true' ? '/Idle-Survival/' : '/';
+
 export default defineConfig({
+  base,
   plugins: [
     react(),
     VitePWA({
@@ -17,8 +22,8 @@ export default defineConfig({
           'Command a colony outpost on a hostile alien frontier. Extract, build, and defend against telegraphed incursions — even while away.',
         display: 'standalone',
         orientation: 'portrait',
-        start_url: '/',
-        scope: '/',
+        start_url: base,
+        scope: base,
         theme_color: '#070d14',
         background_color: '#070d14',
         icons: [
