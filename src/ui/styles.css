@@ -1,0 +1,202 @@
+/* HALCYON — global styles. Palette: deep-space blues, hologram cyan, warning
+   amber. Portrait-first, iPhone safe areas respected, large tap targets. */
+
+:root {
+  --bg: #070d14;
+  --bg-raised: #0d1826;
+  --bg-panel: #101f31;
+  --line: #1d3048;
+  --cyan: #55e2ff;
+  --cyan-dim: #2e8aa6;
+  --amber: #ffb254;
+  --text: #cfe6f2;
+  --text-dim: #6d8ba0;
+  --danger: #ff5d5d;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, 'SF Pro', 'Segoe UI', Roboto, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#root {
+  height: 100%;
+}
+
+/* ── Boot splash ─────────────────────────────────────────────────────────── */
+.boot-screen {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.boot-title {
+  font-size: 28px;
+  letter-spacing: 0.45em;
+  padding-left: 0.45em; /* optically recenter the tracked-out text */
+  color: var(--cyan);
+}
+
+.boot-sub {
+  color: var(--text-dim);
+  font-size: 13px;
+  letter-spacing: 0.15em;
+}
+
+/* ── Outpost layout ──────────────────────────────────────────────────────── */
+.outpost {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding-top: env(safe-area-inset-top);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.hud {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  padding: 10px 12px;
+  background: var(--bg-raised);
+  border-bottom: 1px solid var(--line);
+}
+
+.hud-cell {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 3px;
+  padding: 8px 4px;
+  background: var(--bg-panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.hud-icon {
+  font-size: 14px;
+}
+
+.hud-amount {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.hud-cap {
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+/* ── Radar / threat ticker ───────────────────────────────────────────────── */
+.radar {
+  margin: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 12% 50%, rgba(85, 226, 255, 0.07), transparent 60%),
+    var(--bg-raised);
+}
+
+.radar-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  letter-spacing: 0.2em;
+  color: var(--text-dim);
+}
+
+.radar-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  box-shadow: 0 0 8px rgba(109, 139, 160, 0.6);
+}
+
+.radar-hint {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+/* ── Module grid ─────────────────────────────────────────────────────────── */
+.module-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-auto-rows: minmax(110px, max-content);
+  gap: 12px;
+  padding: 0 12px 12px;
+  overflow-y: auto;
+}
+
+.module-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--bg-panel);
+  font-size: 14px;
+}
+
+.module-tile-icon {
+  font-size: 26px;
+}
+
+.module-tile-sub {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.module-tile.empty {
+  background: transparent;
+  border-style: dashed;
+  opacity: 0.35;
+}
+
+/* ── Status bar ──────────────────────────────────────────────────────────── */
+.status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 14px;
+  font-size: 12px;
+  color: var(--text-dim);
+  background: var(--bg-raised);
+  border-top: 1px solid var(--line);
+  font-variant-numeric: tabular-nums;
+}
+
+.save-pill.save-saved {
+  color: var(--cyan-dim);
+}
+
+.save-pill.save-dirty {
+  color: var(--amber);
+}
