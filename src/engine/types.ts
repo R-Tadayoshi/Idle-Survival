@@ -28,6 +28,8 @@ export interface Module {
 
 export type IncursionType = 'swarm' | 'armored' | 'raiders';
 
+export type ThemePreference = 'system' | 'light' | 'dark';
+
 export interface Incursion {
   id: string;
   /** epoch ms, from the deterministic seed-based schedule */
@@ -53,5 +55,5 @@ export interface GameState {
   incursions: Incursion[];
   survival: { integrity: number; dayCount: number };
   prestige: { level: number; multiplier: number };
-  settings: { hapticsEnabled: boolean };
+  settings: { hapticsEnabled: boolean; theme: ThemePreference };
 }

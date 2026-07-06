@@ -13,7 +13,11 @@ const HUD_RESOURCES: Array<{ id: ResourceId; icon: string; label: string }> = [
   { id: 'exotic', icon: '🔷', label: 'Exotic' },
 ];
 
-export function OutpostScreen() {
+interface OutpostScreenProps {
+  onOpenSettings: () => void;
+}
+
+export function OutpostScreen({ onOpenSettings }: OutpostScreenProps) {
   const game = useGameStore((s) => s.game);
   const saveStatus = useGameStore((s) => s.saveStatus);
   const storagePersisted = useGameStore((s) => s.storagePersisted);
@@ -30,6 +34,9 @@ export function OutpostScreen() {
           <span>
             👤 {game.colonists.total}/{game.colonists.cap}
           </span>
+          <button className="icon-button" onClick={onOpenSettings} aria-label="Open settings">
+            ⚙️
+          </button>
         </div>
       </header>
 

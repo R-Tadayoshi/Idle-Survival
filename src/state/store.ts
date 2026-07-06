@@ -4,7 +4,7 @@
  */
 import { create } from 'zustand';
 import { createNewGame } from '../engine/newGame';
-import type { GameState } from '../engine/types';
+import type { GameState, ThemePreference } from '../engine/types';
 
 export type SaveStatus = 'loading' | 'saved' | 'dirty';
 
@@ -20,6 +20,7 @@ interface GameStore {
   setSaveStatus: (s: SaveStatus) => void;
   setStoragePersisted: (v: boolean) => void;
   stampActive: (now?: number) => void;
+  setTheme: (theme: ThemePreference) => void;
 }
 
 export const useGameStore = create<GameStore>()((set) => ({
@@ -33,4 +34,6 @@ export const useGameStore = create<GameStore>()((set) => ({
   setStoragePersisted: (storagePersisted) => set({ storagePersisted }),
   stampActive: (now = Date.now()) =>
     set((s) => ({ game: { ...s.game, lastActiveAt: now } })),
+  setTheme: (theme) =>
+    set((s) => ({ game: { ...s.game, settings: { ...s.game.settings, theme } } })),
 }));

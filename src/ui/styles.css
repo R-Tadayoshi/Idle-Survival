@@ -1,18 +1,52 @@
-/* HALCYON — global styles. True-black, monochrome UI with a single accent
-   color; emoji carry the only other color. Portrait-first, iPhone safe areas
-   respected, large tap targets. */
+/* HALCYON — global styles. True-black (dark) / true-white (light) monochrome
+   UI with a single gold accent color; emoji carry the only other color.
+   Portrait-first, iPhone safe areas respected, large tap targets. */
 
 :root {
+  color-scheme: dark;
   --bg: #000000;
   --surface: #0a0a0a;
   --surface-2: #131313;
   --border: rgba(255, 255, 255, 0.09);
   --border-strong: rgba(255, 255, 255, 0.18);
-  --accent: #00e5c7;
+  --accent: #c9a24e;
+  --accent-ink: #000000; /* text drawn on top of --accent */
   --text: #f2f2f2;
   --text-dim: #6e6e6e;
-  --warn: #ffb454;
+  --warn: #ff9d3d;
   --danger: #ff453a;
+}
+
+/* System preference drives the theme unless the user picks explicitly in
+   Settings (data-theme, stamped by App.tsx from the persisted setting). */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    color-scheme: light;
+    --bg: #ffffff;
+    --surface: #f6f6f6;
+    --surface-2: #ececec;
+    --border: rgba(0, 0, 0, 0.09);
+    --border-strong: rgba(0, 0, 0, 0.18);
+    --accent: #96751f;
+    --text: #111111;
+    --text-dim: #6b6b6b;
+    --warn: #c96a12;
+    --danger: #d92d20;
+  }
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --bg: #ffffff;
+  --surface: #f6f6f6;
+  --surface-2: #ececec;
+  --border: rgba(0, 0, 0, 0.09);
+  --border-strong: rgba(0, 0, 0, 0.18);
+  --accent: #96751f;
+  --text: #111111;
+  --text-dim: #6b6b6b;
+  --warn: #c96a12;
+  --danger: #d92d20;
 }
 
 * {
@@ -123,6 +157,7 @@ body {
 
 .topbar-meta {
   display: flex;
+  align-items: center;
   gap: 14px;
   font-size: 12px;
   color: var(--text-dim);
@@ -296,4 +331,100 @@ body {
 
 .save-pill.save-dirty {
   color: var(--warn);
+}
+
+/* ── Icon buttons (topbar gear, settings close) ─────────────────────────── */
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  font-size: 15px;
+  line-height: 1;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.icon-button:active {
+  background: var(--surface-2);
+}
+
+/* ── Settings sheet ──────────────────────────────────────────────────────── */
+.settings-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: flex-end;
+  z-index: 50;
+}
+
+.settings-sheet {
+  width: 100%;
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+  border-radius: 20px 20px 0 0;
+  border-bottom: none;
+  animation: sheet-in 0.2s ease;
+}
+
+@keyframes sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.settings-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  color: var(--text-dim);
+  margin-bottom: 16px;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.settings-label {
+  font-size: 14px;
+  color: var(--text);
+}
+
+.segmented {
+  display: flex;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.segmented-option {
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.segmented-option.active {
+  background: var(--accent);
+  color: var(--accent-ink);
 }

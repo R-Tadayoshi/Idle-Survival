@@ -34,7 +34,15 @@ function migrate(raw: unknown): GameState | null {
   const save = raw as GameState;
   switch (save.version) {
     case SAVE_VERSION:
-      return save;
+      // Defensively fill fields added after a save was first written, rather
+      // than bumping SAVE_VERSION for every additive settings field.
+      return {
+        ...save,
+        settings: {
+          hapticsEnabled: save.settings?.hapticsEnabled ?? true,
+          theme: save.settings?.theme ?? 'system',
+        },
+      };
     // future: case 1 → transform to 2, fall through …
     default:
       return null;
