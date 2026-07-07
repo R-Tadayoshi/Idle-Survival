@@ -4,6 +4,7 @@
  */
 import { useGameStore } from '../state/store';
 import { RadarGlyph } from './RadarGlyph';
+import { LockGlyph } from './LockGlyph';
 import type { ResourceId } from '../engine/types';
 
 const HUD_RESOURCES: Array<{ id: ResourceId; icon: string; label: string }> = [
@@ -79,15 +80,15 @@ export function OutpostScreen({ onOpenSettings }: OutpostScreenProps) {
           <span className="module-tile-sub">Construction systems come online in Phase 1</span>
         </div>
         <div className="module-tile empty">
-          <span className="module-tile-icon dim">🔒</span>
+          <LockGlyph size={24} className="module-tile-icon dim" />
           <span className="module-tile-sub">Unlocks soon</span>
         </div>
         <div className="module-tile empty">
-          <span className="module-tile-icon dim">🔒</span>
+          <LockGlyph size={24} className="module-tile-icon dim" />
           <span className="module-tile-sub">Unlocks soon</span>
         </div>
         <div className="module-tile empty">
-          <span className="module-tile-icon dim">🔒</span>
+          <LockGlyph size={24} className="module-tile-icon dim" />
           <span className="module-tile-sub">Unlocks soon</span>
         </div>
       </main>
@@ -96,8 +97,11 @@ export function OutpostScreen({ onOpenSettings }: OutpostScreenProps) {
         <span className={`save-pill save-${saveStatus}`}>
           {saveStatus === 'saved' ? '● saved' : saveStatus === 'dirty' ? '○ saving…' : '… loading'}
         </span>
-        <span title="Persistent storage granted by the browser">
-          {storagePersisted === null ? '⏳' : storagePersisted ? '🔒' : '⚠️'} storage
+        <span
+          className={`status-pill${storagePersisted === true ? ' ok' : storagePersisted === false ? ' warn' : ''}`}
+          title="Persistent storage granted by the browser"
+        >
+          {storagePersisted === null ? '…' : '●'} storage
         </span>
       </footer>
     </div>

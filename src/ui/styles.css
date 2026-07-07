@@ -336,6 +336,14 @@ body {
   color: var(--warn);
 }
 
+.status-pill.ok {
+  color: var(--accent);
+}
+
+.status-pill.warn {
+  color: var(--warn);
+}
+
 /* ── Icon buttons (topbar gear, settings close) ─────────────────────────── */
 .icon-button {
   display: inline-flex;
