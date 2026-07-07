@@ -1,9 +1,18 @@
 ---
 name: verify
-description: Build, serve, and drive the HALCYON PWA in headless Chromium to verify changes end-to-end (rendering, service worker, offline mode, IndexedDB save).
+description: Build, serve, and drive the Hearthold (formerly HALCYON) PWA in headless Chromium to verify changes end-to-end (rendering, service worker, offline mode, IndexedDB save).
 ---
 
-# Verifying HALCYON (installable PWA)
+# Verifying Hearthold (installable PWA)
+
+Renamed from HALCYON to Hearthold in a medieval-fantasy reskin (Phase 4
+follow-up). This was purely a display-layer change — `MODULES[type].name`,
+resource icons/labels, and UI copy — object keys (`salvageRig`, `scrap`,
+etc.), balance numbers, and the IndexedDB save schema (`idb` DB name
+`halcyon`, no migration) are all unchanged. Reference scripts below use the
+new display names (e.g. `hasText: 'Windmill'` not `'Reactor'`); if you find
+an old script using pre-reskin strings, it predates the rename — update its
+`hasText` locators and any hardcoded copy assertions, not the app.
 
 ## Build + serve the production bundle
 
