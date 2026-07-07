@@ -181,21 +181,25 @@ const context = await browser.newContext({ viewport: { width: 390, height: 844 }
   Playwright suite — this class of bug only shows up on a real phone. Fixed
   with a `height: 100dvh` override after the `100%` fallback (unsupported
   browsers just ignore the second declaration).
-- **`-webkit-fill-available` is not a safe blanket fix, even for the
-  WebKit-specific case it's meant for.** It's the documented workaround for
-  a *separate* iOS-standalone-PWA height bug (no browser chrome at all,
-  distinct from the mobile-tab-toolbar case `dvh` fixes) — but applied
-  unscoped to `html`/`body`/`#root`, it made the whole page scroll as one
-  unit instead of just the intended `.module-grid` region, because in some
-  engines it sizes to *content* rather than *viewport*. Fix: scope it
-  behind `@media (display-mode: standalone)` so it only ever applies to an
-  actually-installed PWA, never a regular browser tab — and separately, add
-  `overflow: hidden` on `html`/`body` as a hard guarantee the page itself
-  can never scroll regardless of any height-calculation quirk, current or
-  future, in any mode. Neither the original bug nor this regression showed
-  up in headless Chromium (fixed non-standalone viewport, no real device
-  chrome) — this whole class of bug needs a real device or at least
-  `display-mode: standalone` emulation to actually see.
+- **`-webkit-fill-available` for `height` was tried and abandoned entirely
+  — do not reintroduce it.** It's the commonly-cited workaround for an
+  iOS-standalone-PWA height bug (no browser chrome at all, distinct from
+  the mobile-tab-toolbar case `dvh` fixes), but in practice it sizes to
+  *content* rather than *viewport* in enough cases to be unsafe: applied
+  unscoped to `html`/`body`/`#root` it made the whole page scroll as one
+  unit; scoped behind `@media (display-mode: standalone)` (seemingly a
+  fix, since it no longer touched the regular-browser-tab case) it still
+  broke scrolling, because standalone is exactly the mode it's meant for —
+  it ballooned the whole app chain to fit all content instead of
+  constraining it to the viewport, so nothing needed to scroll internally,
+  and with page-level scroll blocked by `overflow: hidden` the overflow
+  just became unreachable. Two different real-device regressions from the
+  same property, neither reproducible in headless Chromium (fixed,
+  non-standalone viewport — this whole class of bug needs a real device to
+  see at all) — not worth the risk versus plain `100dvh`, which is
+  standards-track and doesn't have this failure mode. If a real
+  iOS-standalone height issue resurfaces, don't reach for this property
+  again without a way to verify on the actual device first.
 - **The actual root cause behind both of the above: `.module-grid` (flex: 1
   inside a flex column, with its own `overflow-y: auto`) was missing
   `min-height: 0`.** Flex items default to `min-height: auto`, which
