@@ -267,10 +267,14 @@ body {
 
 /* ── Module grid ─────────────────────────────────────────────────────────── */
 .module-grid {
+  /* Plain flex column, not CSS Grid: every real module card is already
+     full-width (was grid-column: 1/-1), and most browsers don't factor a
+     spanning grid item's actual content height into auto-row sizing — cards
+     were clamping to the 110px minimum and overflowing into the row below
+     instead of growing to fit their content. */
   flex: 1;
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  grid-auto-rows: minmax(110px, max-content);
+  display: flex;
+  flex-direction: column;
   gap: 10px;
   padding: 0 12px 12px;
   overflow-y: auto;
@@ -317,7 +321,6 @@ body {
 
 /* ── Module card (real module: icon/rate/workers/manual-tap) ────────────── */
 .module-card {
-  grid-column: 1 / -1;
   flex-direction: column;
   align-items: stretch;
   gap: 10px;
