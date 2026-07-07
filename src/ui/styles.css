@@ -88,22 +88,6 @@ body {
   height: 100dvh;
 }
 
-/* iOS home-screen (standalone) PWAs have their own separate, older bug
-   where vh/%/dvh can still misreport the truly available height even with
-   no browser chrome onscreen at all. -webkit-fill-available is the
-   documented WebKit fix for that — but it's unreliable enough elsewhere
-   (in some engines it sizes to content instead of the viewport, which
-   turns the whole page into one big scroll box) that it must stay scoped
-   to actual standalone/installed mode, never applied to a regular browser
-   tab. */
-@media (display-mode: standalone) {
-  html,
-  body,
-  #root {
-    height: -webkit-fill-available;
-  }
-}
-
 /* ── Radar glyph (brand mark + live status indicator) ───────────────────── */
 .radar-glyph {
   color: var(--accent);
@@ -324,6 +308,7 @@ body {
   gap: 10px;
   padding: 0 12px 12px;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .module-tile {
