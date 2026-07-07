@@ -196,6 +196,23 @@ const context = await browser.newContext({ viewport: { width: 390, height: 844 }
   up in headless Chromium (fixed non-standalone viewport, no real device
   chrome) — this whole class of bug needs a real device or at least
   `display-mode: standalone` emulation to actually see.
+- **The actual root cause behind both of the above: `.module-grid` (flex: 1
+  inside a flex column, with its own `overflow-y: auto`) was missing
+  `min-height: 0`.** Flex items default to `min-height: auto`, which
+  refuses to shrink below content size — so the grid grew to fit every
+  built module instead of clipping to its allotted flex space, leaving
+  `overflow-y: auto` permanently inert (the box was already exactly as tall
+  as its content, so there was nothing *to* scroll). Before `overflow:
+  hidden` was added to `html`/`body`, this surfaced as the whole page
+  scrolling as a fallback; after, as the module list being visually clipped
+  with no way to reach the cards past the fold. **Verifying this with
+  `el.scrollTop = el.scrollHeight` (a JS assignment) is not sufficient and
+  can mask the bug** — it can still move the scroll position even when
+  `min-height: auto` means the box was never actually constrained; test
+  with real input instead (`page.mouse.wheel(dx, dy)` after `.hover()` on
+  the scrollable region) and assert `clientHeight < scrollHeight` on the
+  element to confirm it's genuinely clipped, not just nominally
+  "scrollable."
 - **Emoji missing the variation selector (`️`) can render as a
   monochrome text glyph instead of the color emoji**, same root cause as the
   earlier 🔒→gold-lock bug. `🛡` (no VS16) rendered as a plain heart-outline
