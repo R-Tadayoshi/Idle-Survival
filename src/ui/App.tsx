@@ -4,11 +4,13 @@ import { OutpostScreen } from './OutpostScreen';
 import { RadarGlyph } from './RadarGlyph';
 import { SettingsScreen } from './SettingsScreen';
 import { OfflineSummaryModal } from './OfflineSummaryModal';
+import { BuildMenuScreen } from './BuildMenuScreen';
 
 export function App() {
   const ready = useGameStore((s) => s.ready);
   const theme = useGameStore((s) => s.game.settings.theme);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [buildMenuOpen, setBuildMenuOpen] = useState(false);
 
   // 'system' means "no explicit override" — let the prefers-color-scheme
   // media query in CSS decide; otherwise stamp the choice for CSS to read.
@@ -28,8 +30,12 @@ export function App() {
   }
   return (
     <>
-      <OutpostScreen onOpenSettings={() => setSettingsOpen(true)} />
+      <OutpostScreen
+        onOpenSettings={() => setSettingsOpen(true)}
+        onOpenBuildMenu={() => setBuildMenuOpen(true)}
+      />
       {settingsOpen && <SettingsScreen onClose={() => setSettingsOpen(false)} />}
+      {buildMenuOpen && <BuildMenuScreen onClose={() => setBuildMenuOpen(false)} />}
       <OfflineSummaryModal />
     </>
   );

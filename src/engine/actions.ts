@@ -12,7 +12,9 @@ export function extractResource(state: GameState, resourceId: ResourceId): GameS
   if (!yieldAmount) return state;
 
   const res = state.resources[resourceId];
-  const newAmount = Math.min(res.cap, res.amount + yieldAmount);
+  // max(...) guards a resource already above cap (see tick.ts) — extraction
+  // adds, it must never claw back stock that was already there.
+  const newAmount = Math.max(res.amount, Math.min(res.cap, res.amount + yieldAmount));
   if (newAmount === res.amount) return state; // already at cap — no-op, skip the re-render/save
 
   return {

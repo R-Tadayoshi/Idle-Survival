@@ -85,6 +85,23 @@ const context = await browser.newContext({ viewport: { width: 390, height: 844 }
   under any resource cap (a window long enough to hit a cap converges both
   approaches to the same capped value and hides the bug you're checking
   for). `tsx` isn't installed; `npx tsx <file>.mts` fetches it on first use.
+- **Power/build system (Phase 4):** `buildModule`/`upgradeModule` always call
+  `recalculateCaps()` regardless of module type — so an externally-injected
+  `resources[id].cap` override (for giving a test enough funds) gets reset to
+  the config-derived value on the *next* build of anything, not just a
+  Storage Depot. Don't set `amount` above a cap you can't guarantee survives;
+  top up resources fresh (to a value safely under the *current* real cap)
+  right before each spending step instead of one big upfront injection — see
+  the `topUp()` helper pattern in `verify-phase4.mjs`. Also: since this
+  phase, a **fresh game is underpowered by default** (the starter Salvage
+  Rig demands 2 power, no Reactor exists yet) — any test that assumes "full
+  production rate" on a new save needs the 0.4x `UNDERPOWERED_THROTTLE`
+  factored in until it explicitly builds + funds a Reactor first.
+- **`.module-card-tap` is no longer unique** — Phase 4 added an "Upgrade"
+  button sharing that class with the manual tap-to-extract button. Disambiguate
+  by DOM order (`.first()`), not `hasText`, since the tap button's own text
+  changes to "Storage full" once capped — a text filter stops matching it at
+  exactly the moment a later assertion needs to find it.
 
 ## Gotchas
 
@@ -121,8 +138,27 @@ const context = await browser.newContext({ viewport: { width: 390, height: 844 }
   `saveGame` await chain, and that SW install/control behavior is otherwise
   unchanged (see next point).
 - Reference scripts accumulate in the session scratchpad as
-  `verify-phase{N}.mjs` + `verify-settings.mjs`; recreate from the flows
-  above if gone. Update a phase's script's selectors (not just add a new
-  one) when a later phase changes the markup it depends on — e.g. Phase 2
-  turned the whole Phase-1 tap tile into a `.module-card` with a narrower
-  `.module-card-tap` button.
+  `verify-phase{N}.mjs` + `verify-settings.mjs` + `verify-reset.mjs`;
+  recreate from the flows above if gone. Update a phase's script's selectors
+  (not just add a new one) when a later phase changes the markup it depends
+  on — e.g. Phase 2 turned the whole Phase-1 tap tile into a `.module-card`
+  with a narrower `.module-card-tap` button, and Phase 4 made that class
+  ambiguous again (see above). Re-run the *entire* suite set after any
+  engine change that affects a value another phase's test hardcoded a
+  number for (production rate, upkeep rate, etc.) — Phase 4's power system
+  changed the "fresh game" baseline production rate that Phases 2 and 3's
+  own tests had assumed.
+- **The live-tick `setInterval` is measurably throttled under headless
+  Chromium** — confirmed via a fine-grained trace (reading the save every
+  500ms) that it fires roughly once per ~2s instead of once per ~1s, even on
+  a nominally-visible, just-loaded page with no real window manager. The
+  *math* inside each tick is still exactly correct (delta-time computed from
+  real `Date.now()` gaps, not an assumed fixed step — confirmed the ration
+  drain per firing matched `rate * actual_elapsed_seconds` precisely), so
+  this is a firing-*frequency* artifact, not a correctness bug. A short
+  (~3s) observation window is too small a sample and reads as "wrong rate"
+  by pure bad luck of tick timing; use a ~10s window (and proportionally
+  scaled expected value/tolerance) for any assertion on live-tick production
+  rate. This throttling does *not* apply to offline catch-up (`runCatchup`),
+  which chunks deterministically in a plain loop, not a real timer — those
+  checks can stay exact/short.

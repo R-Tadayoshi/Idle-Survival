@@ -1,14 +1,14 @@
 /**
  * Outpost (home) screen: resource HUD, threat radar, and the module grid.
- * The full build menu arrives in Phase 4 — for now the grid holds the one
- * starter module (worker assignment + live production) plus locked
- * placeholders for what's still ahead.
+ * The module grid renders every built module (production or utility) plus
+ * a "+ Build" tile opening the build menu when anything's left to place.
  */
 import { useGameStore } from '../state/store';
 import { MANUAL_TAP_YIELD, MODULES, productionAtLevel } from '../config/halcyon-config';
+import { BUILDABLE_MODULE_TYPES, canAfford, getModuleCost } from '../engine/build';
+import { computePower } from '../engine/power';
 import { RadarGlyph } from './RadarGlyph';
-import { LockGlyph } from './LockGlyph';
-import type { GameState, ResourceId } from '../engine/types';
+import type { GameState, ModuleType, ResourceId } from '../engine/types';
 
 const HUD_RESOURCES: Array<{ id: ResourceId; icon: string; label: string }> = [
   { id: 'scrap', icon: '🔩', label: 'Scrap' },
@@ -21,22 +21,29 @@ const RESOURCE_ICON: Record<ResourceId, string> = Object.fromEntries(
   HUD_RESOURCES.map(({ id, icon }) => [id, icon]),
 ) as Record<ResourceId, string>;
 
-const MODULE_GRID_SLOTS = 4;
+const UTILITY_ICON: Partial<Record<ModuleType, string>> = {
+  reactor: '⚡',
+  storageDepot: '📦',
+  habitat: '🏠',
+};
 
 interface OutpostScreenProps {
   onOpenSettings: () => void;
+  onOpenBuildMenu: () => void;
 }
 
-export function OutpostScreen({ onOpenSettings }: OutpostScreenProps) {
+export function OutpostScreen({ onOpenSettings, onOpenBuildMenu }: OutpostScreenProps) {
   const game = useGameStore((s) => s.game);
   const saveStatus = useGameStore((s) => s.saveStatus);
   const storagePersisted = useGameStore((s) => s.storagePersisted);
   const extract = useGameStore((s) => s.extract);
   const assignWorker = useGameStore((s) => s.assignWorker);
+  const upgradeModule = useGameStore((s) => s.upgradeModule);
 
   const starving = game.resources.rations.amount <= 0;
   const idleColonists = game.colonists.total - game.colonists.assigned;
-  const lockedSlots = Math.max(0, MODULE_GRID_SLOTS - game.modules.length);
+  const power = computePower(game);
+  const hasMoreToBuild = BUILDABLE_MODULE_TYPES.some((type) => !game.modules.some((m) => m.type === type));
 
   return (
     <div className="outpost">
@@ -46,7 +53,12 @@ export function OutpostScreen({ onOpenSettings }: OutpostScreenProps) {
           <span>HALCYON</span>
         </div>
         <div className="topbar-meta">
-          <span>☀️ Day {game.survival.dayCount + 1}</span>
+          <span
+            className={power.demand === 0 ? '' : power.powered ? 'power-ok' : 'power-warn'}
+            title={`Power supply ${power.supply} / demand ${power.demand}`}
+          >
+            ⚡ {power.supply}/{power.demand}
+          </span>
           <span title={`Colonist cap: ${game.colonists.cap}`}>
             👤 {game.colonists.assigned}/{game.colonists.total}
           </span>
@@ -78,6 +90,9 @@ export function OutpostScreen({ onOpenSettings }: OutpostScreenProps) {
       {starving && (
         <p className="starving-banner">⚠ Colonists starving — production reduced. Extract or build Rations.</p>
       )}
+      {!starving && power.demand > 0 && !power.powered && (
+        <p className="starving-banner">⚠ Underpowered — production reduced. Build or upgrade a Reactor.</p>
+      )}
 
       <section className="radar panel" aria-label="Threat radar">
         <div className="radar-head">
@@ -100,14 +115,15 @@ export function OutpostScreen({ onOpenSettings }: OutpostScreenProps) {
             idleColonists={idleColonists}
             onExtract={extract}
             onAssign={(delta) => assignWorker(module.id, delta)}
+            onUpgrade={() => upgradeModule(module.id)}
           />
         ))}
-        {Array.from({ length: lockedSlots }).map((_, i) => (
-          <div className="module-tile empty" key={i}>
-            <LockGlyph size={24} className="module-tile-icon dim" />
-            <span className="module-tile-sub">Unlocks soon</span>
-          </div>
-        ))}
+        {hasMoreToBuild && (
+          <button className="module-tile build-tile" onClick={onOpenBuildMenu}>
+            <span className="module-tile-icon">＋</span>
+            <span className="module-tile-sub">Build</span>
+          </button>
+        )}
       </main>
 
       <footer className="status-bar">
@@ -130,9 +146,10 @@ interface ModuleCardProps {
   idleColonists: number;
   onExtract: (resourceId: ResourceId) => void;
   onAssign: (delta: number) => void;
+  onUpgrade: () => void;
 }
 
-function ModuleCard({ module, idleColonists, onExtract, onAssign }: ModuleCardProps) {
+function ModuleCard({ module, idleColonists, onExtract, onAssign, onUpgrade }: ModuleCardProps) {
   const game = useGameStore((s) => s.game);
   const def = MODULES[module.type];
   const hasProduction = 'produces' in def && 'ratePerWorker' in def;
@@ -143,15 +160,33 @@ function ModuleCard({ module, idleColonists, onExtract, onAssign }: ModuleCardPr
   const tapYield = resourceId ? (MANUAL_TAP_YIELD as Partial<Record<ResourceId, number>>)[resourceId] : undefined;
   const atCap = resourceId ? game.resources[resourceId].amount >= game.resources[resourceId].cap : false;
 
+  const icon = resourceId ? RESOURCE_ICON[resourceId] : (UTILITY_ICON[module.type] ?? '🏗️');
+
+  let effect: string;
+  if (hasProduction) {
+    effect = totalRate > 0 ? `+${totalRate.toFixed(2)}/s` : 'Idle — assign a colonist';
+  } else if ('capBonusAll' in def) {
+    effect = `+${def.capBonusAll * module.level} all storage caps`;
+  } else if ('colonistCapBonus' in def) {
+    effect = `+${def.colonistCapBonus * module.level} colonist cap`;
+  } else if ('energyOutput' in def) {
+    effect = `+${def.energyOutput * module.level} power supply`;
+  } else {
+    effect = '';
+  }
+
+  const upgradeCost = getModuleCost(module.type, module.level + 1);
+  const canUpgrade = canAfford(game, upgradeCost);
+
   return (
     <div className="module-tile module-card panel">
       <div className="module-card-head">
-        <span className="module-tile-icon">{resourceId ? RESOURCE_ICON[resourceId] : '🏗️'}</span>
+        <span className="module-tile-icon">{icon}</span>
         <div className="module-card-title">
           <span>
             {def.name} <span className="module-card-level">Lv.{module.level}</span>
           </span>
-          <span className="module-tile-sub">{totalRate > 0 ? `+${totalRate.toFixed(2)}/s` : 'Idle — assign a colonist'}</span>
+          <span className="module-tile-sub">{effect}</span>
         </div>
       </div>
 
@@ -187,6 +222,13 @@ function ModuleCard({ module, idleColonists, onExtract, onAssign }: ModuleCardPr
           {atCap ? 'Storage full' : `Tap to salvage +${tapYield}`}
         </button>
       )}
+
+      <button className="module-card-tap" onClick={onUpgrade} disabled={!canUpgrade}>
+        Upgrade to Lv.{module.level + 1} —{' '}
+        {(Object.entries(upgradeCost) as Array<[ResourceId, number]>)
+          .map(([id, amount]) => `${RESOURCE_ICON[id] ?? ''}${amount}`)
+          .join(' ')}
+      </button>
     </div>
   );
 }

@@ -4,11 +4,12 @@
  */
 import { create } from 'zustand';
 import { extractResource, setAssignedWorkers } from '../engine/actions';
+import { buildModule as buildModuleEngine, upgradeModule as upgradeModuleEngine } from '../engine/build';
 import { runCatchup as runCatchupEngine, type CatchupResult } from '../engine/catchup';
 import { GLOBAL } from '../config/halcyon-config';
 import { createNewGame } from '../engine/newGame';
 import { tick as tickEngine } from '../engine/tick';
-import type { GameState, ResourceId, ThemePreference } from '../engine/types';
+import type { GameState, ModuleType, ResourceId, ThemePreference } from '../engine/types';
 
 export type SaveStatus = 'loading' | 'saved' | 'dirty';
 
@@ -32,6 +33,8 @@ interface GameStore {
   assignWorker: (moduleId: string, delta: number) => void;
   tick: (dtSeconds: number) => void;
   resetGame: () => void;
+  buildModule: (type: ModuleType) => void;
+  upgradeModule: (moduleId: string) => void;
   /** Replay elapsed time since lastActiveAt through tick(), chunked. Surfaces
    *  offlineSummary only if the gap clears OFFLINE_SUMMARY_MIN_SECONDS. */
   runCatchup: (now?: number) => void;
@@ -56,6 +59,8 @@ export const useGameStore = create<GameStore>()((set) => ({
   assignWorker: (moduleId, delta) => set((s) => ({ game: setAssignedWorkers(s.game, moduleId, delta) })),
   tick: (dtSeconds) => set((s) => ({ game: tickEngine(s.game, dtSeconds) })),
   resetGame: () => set({ game: createNewGame() }),
+  buildModule: (type) => set((s) => ({ game: buildModuleEngine(s.game, type) })),
+  upgradeModule: (moduleId) => set((s) => ({ game: upgradeModuleEngine(s.game, moduleId) })),
   runCatchup: (now = Date.now()) =>
     set((s) => {
       const result = runCatchupEngine(s.game, now);
