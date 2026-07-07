@@ -171,3 +171,28 @@ const context = await browser.newContext({ viewport: { width: 390, height: 844 }
   rate. This throttling does *not* apply to offline catch-up (`runCatchup`),
   which chunks deterministically in a plain loop, not a real timer — those
   checks can stay exact/short.
+- **`height: 100%` on `html`/`body` is a mobile viewport trap.** It resolves
+  against the *layout* viewport, which on mobile browsers is taller than
+  what's actually visible once the address/tab bar is showing — the app's
+  content (including a bottom `.status-bar`) ends up laid out for a screen
+  taller than the real one, leaving a gap and clipping the footer off the
+  visible bottom. Headless Chromium's fixed-viewport `newContext` won't
+  reproduce this (no dynamic browser chrome), so it's invisible to the
+  Playwright suite — this class of bug only shows up on a real phone. Fixed
+  with a `height: 100dvh` override after the `100%` fallback (unsupported
+  browsers just ignore the second declaration).
+- **Emoji missing the variation selector (`️`) can render as a
+  monochrome text glyph instead of the color emoji**, same root cause as the
+  earlier 🔒→gold-lock bug. `🛡` (no VS16) rendered as a plain heart-outline
+  glyph in this environment; `🛡️` (with VS16) rendered correctly. Screenshot
+  any newly-added emoji at least once — this isn't visible from the source
+  text, only from actual rendering.
+- **Training Camp / defender pattern (post-Phase-4):** a module can have
+  `maxWorkers` without `produces`/`ratePerWorker` — it's a worker-slot
+  module whose assigned count feeds something other than resource
+  production (here, `computeDefense` in `engine/defense.ts`). The UI's old
+  `hasProduction` check gated the stepper row *and* implied "produces a
+  resource"; a defense module needs the stepper (`hasWorkers = 'maxWorkers'
+  in def`) without the production-specific bits (tap-to-extract, resource
+  icon). Watch for this same shape again in Phase 5 if any new module is
+  workers-in/no-resources-out.
