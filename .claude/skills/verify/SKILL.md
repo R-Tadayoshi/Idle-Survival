@@ -181,6 +181,21 @@ const context = await browser.newContext({ viewport: { width: 390, height: 844 }
   Playwright suite — this class of bug only shows up on a real phone. Fixed
   with a `height: 100dvh` override after the `100%` fallback (unsupported
   browsers just ignore the second declaration).
+- **`-webkit-fill-available` is not a safe blanket fix, even for the
+  WebKit-specific case it's meant for.** It's the documented workaround for
+  a *separate* iOS-standalone-PWA height bug (no browser chrome at all,
+  distinct from the mobile-tab-toolbar case `dvh` fixes) — but applied
+  unscoped to `html`/`body`/`#root`, it made the whole page scroll as one
+  unit instead of just the intended `.module-grid` region, because in some
+  engines it sizes to *content* rather than *viewport*. Fix: scope it
+  behind `@media (display-mode: standalone)` so it only ever applies to an
+  actually-installed PWA, never a regular browser tab — and separately, add
+  `overflow: hidden` on `html`/`body` as a hard guarantee the page itself
+  can never scroll regardless of any height-calculation quirk, current or
+  future, in any mode. Neither the original bug nor this regression showed
+  up in headless Chromium (fixed non-standalone viewport, no real device
+  chrome) — this whole class of bug needs a real device or at least
+  `display-mode: standalone` emulation to actually see.
 - **Emoji missing the variation selector (`️`) can render as a
   monochrome text glyph instead of the color emoji**, same root cause as the
   earlier 🔒→gold-lock bug. `🛡` (no VS16) rendered as a plain heart-outline
