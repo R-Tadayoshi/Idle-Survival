@@ -18,7 +18,8 @@ export const GLOBAL = {
   DAY_LENGTH_SECONDS: 20 * 60,       // one day/night cycle = 20 min; night = 2nd half
   STARTING_COLONISTS: 3,
   STARTING_COLONIST_CAP: 5,
-  RATION_UPKEEP_PER_COLONIST: 0.1,   // rations/sec drained by EACH colonist
+  RATION_UPKEEP_PER_COLONIST: 0.1,   // rations/sec drained by EACH colonist (idle baseline)
+  WORKING_RATION_UPKEEP_MULT: 1.5,   // colonists assigned to a module drain rations at this multiple of the idle baseline
   HUNGRY_PRODUCTION_MULT: 0.35,      // production multiplier when rations hit 0
 } as const;
 

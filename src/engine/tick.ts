@@ -12,7 +12,12 @@ export function tick(state: GameState, dtSeconds: number): GameState {
   if (dtSeconds <= 0) return state;
 
   const rations = state.resources.rations;
-  const upkeep = GLOBAL.RATION_UPKEEP_PER_COLONIST * state.colonists.total * dtSeconds;
+  const working = state.colonists.assigned;
+  const idle = state.colonists.total - working;
+  const upkeep =
+    GLOBAL.RATION_UPKEEP_PER_COLONIST *
+    (idle + working * GLOBAL.WORKING_RATION_UPKEEP_MULT) *
+    dtSeconds;
   const rationsAmount = Math.max(0, rations.amount - upkeep);
   const hungry = rationsAmount <= 0;
   const productionMult = hungry ? GLOBAL.HUNGRY_PRODUCTION_MULT : 1;
