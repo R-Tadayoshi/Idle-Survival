@@ -5,6 +5,7 @@ import { RadarGlyph } from './RadarGlyph';
 import { SettingsScreen } from './SettingsScreen';
 import { OfflineSummaryModal } from './OfflineSummaryModal';
 import { BuildMenuScreen } from './BuildMenuScreen';
+import { Toast } from './Toast';
 
 export function App() {
   const ready = useGameStore((s) => s.ready);
@@ -37,6 +38,7 @@ export function App() {
       {settingsOpen && <SettingsScreen onClose={() => setSettingsOpen(false)} />}
       {buildMenuOpen && <BuildMenuScreen onClose={() => setBuildMenuOpen(false)} />}
       <OfflineSummaryModal />
+      <Toast />
     </>
   );
 }

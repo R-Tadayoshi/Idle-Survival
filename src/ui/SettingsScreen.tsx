@@ -16,6 +16,8 @@ interface SettingsScreenProps {
 export function SettingsScreen({ onClose }: SettingsScreenProps) {
   const theme = useGameStore((s) => s.game.settings.theme);
   const setTheme = useGameStore((s) => s.setTheme);
+  const hapticsEnabled = useGameStore((s) => s.game.settings.hapticsEnabled);
+  const setHapticsEnabled = useGameStore((s) => s.setHapticsEnabled);
   const resetGame = useGameStore((s) => s.resetGame);
   const setSaveStatus = useGameStore((s) => s.setSaveStatus);
   const storagePersisted = useGameStore((s) => s.storagePersisted);
@@ -55,6 +57,23 @@ export function SettingsScreen({ onClose }: SettingsScreenProps) {
                 {label}
               </button>
             ))}
+          </div>
+        </div>
+        <div className="settings-row">
+          <span className="settings-label">Haptics</span>
+          <div className="segmented">
+            <button
+              className={`segmented-option${hapticsEnabled ? ' active' : ''}`}
+              onClick={() => setHapticsEnabled(true)}
+            >
+              On
+            </button>
+            <button
+              className={`segmented-option${!hapticsEnabled ? ' active' : ''}`}
+              onClick={() => setHapticsEnabled(false)}
+            >
+              Off
+            </button>
           </div>
         </div>
         <div className="settings-row">

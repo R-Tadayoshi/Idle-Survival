@@ -3,6 +3,7 @@
  * The module grid renders every built module (production or utility) plus
  * a "+ Build" tile opening the build menu when anything's left to place.
  */
+import { useEffect } from 'react';
 import { useGameStore } from '../state/store';
 import { INCURSIONS, MANUAL_TAP_YIELD, MODULES, POWER, SENTINEL, productionAtLevel } from '../config/halcyon-config';
 import { BUILDABLE_MODULE_TYPES, canAfford, getModuleCost, getRepairCost } from '../engine/build';
@@ -11,7 +12,9 @@ import { peekUpcomingIncursions } from '../engine/incursions';
 import { computePower } from '../engine/power';
 import { currentProductionMultiplier } from '../engine/tick';
 import { formatDuration } from './format';
+import { HAPTIC, vibrate } from './haptics';
 import { RadarGlyph } from './RadarGlyph';
+import { useAnimatedNumber } from './useAnimatedNumber';
 import type { GameState, IncursionType, ModuleType, ResourceId } from '../engine/types';
 
 const TYPE_LABEL: Record<IncursionType, string> = {
@@ -58,6 +61,15 @@ export function OutpostScreen({ onOpenSettings, onOpenBuildMenu }: OutpostScreen
   const repairModule = useGameStore((s) => s.repairModule);
   const liveBattleAlert = useGameStore((s) => s.liveBattleAlert);
   const dismissLiveBattleAlert = useGameStore((s) => s.dismissLiveBattleAlert);
+  const dismissOnboarding = useGameStore((s) => s.dismissOnboarding);
+
+  // Fires once per newly-resolved live incursion, not on every re-render —
+  // liveBattleAlert only changes identity when tick() actually resolves a
+  // new one (see store.ts), so this can't re-vibrate on an unrelated update.
+  useEffect(() => {
+    if (!liveBattleAlert) return;
+    vibrate(liveBattleAlert.outcome === 'breached' ? HAPTIC.raidBreached : HAPTIC.raidRepelled);
+  }, [liveBattleAlert]);
 
   const starving = game.resources.rations.amount <= 0;
   const idleColonists = game.colonists.total - game.colonists.assigned;
@@ -99,23 +111,17 @@ export function OutpostScreen({ onOpenSettings, onOpenBuildMenu }: OutpostScreen
       </header>
 
       <section className="hud">
-        {HUD_RESOURCES.map(({ id, icon, label }) => {
-          const { amount, cap } = game.resources[id];
-          const pct = Math.min(100, Math.round((amount / cap) * 100));
-          return (
-            <div className="hud-cell" key={id} title={label}>
-              <span className="hud-icon">{icon}</span>
-              <div className="hud-values">
-                <span className="hud-amount">{Math.floor(amount)}</span>
-                <span className="hud-cap">/{cap}</span>
-              </div>
-              <div className="hud-bar">
-                <div className="hud-bar-fill" style={{ width: `${pct}%` }} />
-              </div>
-            </div>
-          );
-        })}
+        {HUD_RESOURCES.map(({ id, icon, label }) => (
+          <HudCell key={id} icon={icon} label={label} amount={game.resources[id].amount} cap={game.resources[id].cap} />
+        ))}
       </section>
+
+      {!game.settings.onboardingDismissed && (
+        <p className="onboarding-banner" onClick={dismissOnboarding}>
+          Tap Wood to gather it by hand, or assign villagers to your Woodcutter's Camp to produce it automatically.
+          (tap to dismiss)
+        </p>
+      )}
 
       {starving && (
         <p className="starving-banner">⚠ Villagers going hungry — production reduced. Gather or build a Farm.</p>
@@ -138,7 +144,7 @@ export function OutpostScreen({ onOpenSettings, onOpenBuildMenu }: OutpostScreen
       <section className="radar panel" aria-label="Threat radar">
         {watchtower ? (
           <div className="radar-head">
-            <RadarGlyph size={36} />
+            <RadarGlyph size={36} spinning />
             <div>
               <div className="radar-status radar-status-online">
                 <span className="radar-dot radar-dot-online" />
@@ -180,10 +186,19 @@ export function OutpostScreen({ onOpenSettings, onOpenBuildMenu }: OutpostScreen
             key={module.id}
             module={module}
             idleColonists={idleColonists}
-            onExtract={extract}
+            onExtract={(id) => {
+              vibrate(HAPTIC.tap);
+              extract(id);
+            }}
             onAssign={(delta) => assignWorker(module.id, delta)}
-            onUpgrade={() => upgradeModule(module.id)}
-            onRepair={() => repairModule(module.id)}
+            onUpgrade={() => {
+              vibrate(HAPTIC.confirm);
+              upgradeModule(module.id);
+            }}
+            onRepair={() => {
+              vibrate(HAPTIC.confirm);
+              repairModule(module.id);
+            }}
           />
         ))}
         {hasMoreToBuild && (
@@ -193,6 +208,30 @@ export function OutpostScreen({ onOpenSettings, onOpenBuildMenu }: OutpostScreen
           </button>
         )}
       </main>
+    </div>
+  );
+}
+
+interface HudCellProps {
+  icon: string;
+  label: string;
+  amount: number;
+  cap: number;
+}
+
+function HudCell({ icon, label, amount, cap }: HudCellProps) {
+  const animatedAmount = useAnimatedNumber(amount);
+  const pct = Math.min(100, Math.round((animatedAmount / cap) * 100));
+  return (
+    <div className="hud-cell" title={label}>
+      <span className="hud-icon">{icon}</span>
+      <div className="hud-values">
+        <span className="hud-amount">{Math.floor(animatedAmount)}</span>
+        <span className="hud-cap">/{cap}</span>
+      </div>
+      <div className="hud-bar">
+        <div className="hud-bar-fill" style={{ width: `${pct}%` }} />
+      </div>
     </div>
   );
 }

@@ -278,6 +278,23 @@ body {
 
 .radar-dot-online {
   background: var(--accent);
+  animation: radar-dot-pulse 2s ease-in-out infinite;
+}
+
+@keyframes radar-dot-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .radar-dot-online {
+    animation: none;
+  }
 }
 
 .radar-hint {
@@ -475,6 +492,24 @@ body {
   font-size: 12px;
   line-height: 1.4;
   cursor: pointer;
+  animation: battle-alert-in 0.3s ease;
+}
+
+@keyframes battle-alert-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .battle-alert {
+    animation: none;
+  }
 }
 
 .battle-alert-repelled {
@@ -485,6 +520,19 @@ body {
 .battle-alert-breached {
   border: 1px solid var(--danger);
   color: var(--danger);
+}
+
+/* ── Onboarding banner (first-launch hint, dismissible) ──────────────────── */
+.onboarding-banner {
+  margin: 0 12px 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.4;
+  cursor: pointer;
+  animation: battle-alert-in 0.3s ease;
 }
 
 .module-tile-icon.dim {
@@ -750,6 +798,25 @@ body {
   cursor: not-allowed;
 }
 
+.locked-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  cursor: default;
+  opacity: 0.55;
+}
+
+.build-row-locked-reason {
+  font-size: 11px;
+  color: var(--text-dim);
+  text-align: right;
+  max-width: 55%;
+}
+
 .build-row-name {
   font-size: 14px;
   font-weight: 500;
@@ -765,4 +832,41 @@ body {
 
 .cost-insufficient {
   color: var(--danger);
+}
+
+/* ── Toast (SW update/offline-ready status) ──────────────────────────────── */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(20px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  max-width: calc(100% - 32px);
+  padding: 10px 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 13px;
+  text-align: center;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  z-index: 60;
+  animation: toast-in 0.25s ease;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 10px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast {
+    animation: none;
+  }
 }

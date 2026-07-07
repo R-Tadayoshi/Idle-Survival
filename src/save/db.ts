@@ -42,6 +42,11 @@ function migrate(raw: unknown): GameState | null {
         settings: {
           hapticsEnabled: save.settings?.hapticsEnabled ?? true,
           theme: save.settings?.theme ?? 'system',
+          // An existing save already has a colony under way — the onboarding
+          // banner is for a genuinely fresh start, so treat any save from
+          // before this field existed as already dismissed, not as "show it
+          // to a returning player who's built half a dozen modules."
+          onboardingDismissed: save.settings?.onboardingDismissed ?? true,
         },
         incursions: save.incursions ?? [],
         nextIncursionIndex: save.nextIncursionIndex ?? 0,

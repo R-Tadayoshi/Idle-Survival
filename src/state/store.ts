@@ -31,12 +31,17 @@ interface GameStore {
    *  which has its own battle report in offlineSummary) — shown as a
    *  transient alert, then cleared. null = nothing to show. */
   liveBattleAlert: Incursion | null;
+  /** a short-lived status message (SW update/offline-ready, etc.) — a new
+   *  call replaces whatever's showing; the Toast component owns the
+   *  auto-dismiss timer. null = nothing to show. */
+  toast: string | null;
 
   hydrate: (game: GameState) => void;
   setSaveStatus: (s: SaveStatus) => void;
   setStoragePersisted: (v: boolean) => void;
   stampActive: (now?: number) => void;
   setTheme: (theme: ThemePreference) => void;
+  setHapticsEnabled: (enabled: boolean) => void;
   extract: (resourceId: ResourceId) => void;
   assignWorker: (moduleId: string, delta: number) => void;
   tick: (dtSeconds: number) => void;
@@ -49,6 +54,9 @@ interface GameStore {
   runCatchup: (now?: number) => void;
   dismissOfflineSummary: () => void;
   dismissLiveBattleAlert: () => void;
+  showToast: (message: string) => void;
+  dismissToast: () => void;
+  dismissOnboarding: () => void;
 }
 
 export const useGameStore = create<GameStore>()((set) => ({
@@ -58,6 +66,7 @@ export const useGameStore = create<GameStore>()((set) => ({
   storagePersisted: null,
   offlineSummary: null,
   liveBattleAlert: null,
+  toast: null,
 
   hydrate: (game) => set({ game, ready: true }),
   setSaveStatus: (saveStatus) => set({ saveStatus }),
@@ -66,6 +75,8 @@ export const useGameStore = create<GameStore>()((set) => ({
     set((s) => ({ game: { ...s.game, lastActiveAt: now } })),
   setTheme: (theme) =>
     set((s) => ({ game: { ...s.game, settings: { ...s.game.settings, theme } } })),
+  setHapticsEnabled: (hapticsEnabled) =>
+    set((s) => ({ game: { ...s.game, settings: { ...s.game.settings, hapticsEnabled } } })),
   extract: (resourceId) => set((s) => ({ game: extractResource(s.game, resourceId) })),
   assignWorker: (moduleId, delta) => set((s) => ({ game: setAssignedWorkers(s.game, moduleId, delta) })),
   tick: (dtSeconds) =>
@@ -86,4 +97,8 @@ export const useGameStore = create<GameStore>()((set) => ({
     }),
   dismissOfflineSummary: () => set({ offlineSummary: null }),
   dismissLiveBattleAlert: () => set({ liveBattleAlert: null }),
+  showToast: (toast) => set({ toast }),
+  dismissToast: () => set({ toast: null }),
+  dismissOnboarding: () =>
+    set((s) => ({ game: { ...s.game, settings: { ...s.game.settings, onboardingDismissed: true } } })),
 }));

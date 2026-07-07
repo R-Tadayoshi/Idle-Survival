@@ -322,3 +322,52 @@ underpowered) — reproduce the *combined* worst case with a direct
 `tick()` loop (`unit-starvation-spiral.mts` pattern: build up a
 compounding-risk scenario, run ~30 ticks, assert the resource actually
 climbs) before trusting that two throttles compose safely.
+
+## Phase 6 (polish/game feel) additions
+
+- **`requestAnimationFrame` throttles in headless Chromium too, the same
+  way `setInterval` does.** Added a ~450ms ease-out tween
+  (`useAnimatedNumber`) so HUD resource amounts count up smoothly instead
+  of jumping instantly. Any test reading `.hud-amount` shortly after a
+  state change now needs to wait past that window — but a "safe" 600ms
+  wait (450ms + margin) still flaked, because rAF callbacks can fire far
+  less often than 60fps here, so wall-clock time to reach the animation's
+  internal `t=1` threshold can stretch well past the nominal duration.
+  Fixed by waiting generously (1500ms), matching the existing live-tick
+  convention elsewhere in this suite — don't assume rAF-driven animations
+  settle anywhere near their nominal duration in this environment.
+- **A generous wait added to accommodate one thing (animation settling)
+  can silently give enough real time for something *else* correct to
+  happen too** — bumping a post-reset wait to 1500ms made a "rations back
+  to exactly 40" assertion flake at 39, not because of animation timing,
+  but because the live tick actually fired during that longer window and
+  idle-colonist ration upkeep genuinely drained it by a fraction (correct
+  game behavior — colonists eat whether or not they're assigned to a
+  module). The fix wasn't a longer wait or a different selector, it was
+  loosening the assertion to a tolerant range (`>= 38 && <= 40`) once the
+  wait window was long enough that *something* was expected to move it.
+  When bumping a wait to fix one flake, check whether the longer window
+  now exposes an unrelated background process (live tick, autosave) and
+  re-derive the assertion's tolerance accordingly, rather than assuming
+  the original exact-match was still valid.
+- **A component's very first render never animates — there's nothing to
+  tween *from*.** Tried to verify the tick-up animation by injecting an
+  offline-catchup resource gain and reloading; the HUD showed the final
+  value on frame one every time, because catch-up runs during boot
+  *before* the component ever mounts (`useState(target)` initializes
+  straight to the post-catchup value — no prior value exists to animate
+  away from). To actually observe a mid-tween value, trigger a change
+  *after* the page is already interactive and settled — e.g. a build
+  action's instant cost deduction — not a value that was already baked
+  into the very first render.
+- **A CSS class shared between two visually-similar but semantically
+  different things breaks count-based assertions.** Gave a new
+  "locked module" row (Fabricator, shown in the build menu with a
+  greyed-out reason instead of just silently not appearing) the same
+  `.build-row` class as real buildable rows for quick styling — this
+  silently inflated `page.locator('.build-row').count()` in existing
+  tests that meant "how many *buildable* things are listed." Fixed with a
+  fully separate `.locked-row` class (own CSS, not composed with
+  `.build-row`) rather than a modifier on the shared class, so "buildable"
+  and "locked" stay distinguishable by selector, not just by reading
+  `disabled`/`aria-disabled`.

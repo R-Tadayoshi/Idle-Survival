@@ -36,6 +36,6 @@ export function createNewGame(now = Date.now()): GameState {
     nextIncursionArrivalAt: firstIncursionArrival(now),
     survival: { integrity: 100, dayCount: 0 },
     prestige: { level: 0, multiplier: 1 },
-    settings: { hapticsEnabled: true, theme: 'system' },
+    settings: { hapticsEnabled: true, theme: 'system', onboardingDismissed: false },
   };
 }

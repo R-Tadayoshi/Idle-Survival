@@ -73,5 +73,5 @@ export interface GameState {
   nextIncursionArrivalAt: number;
   survival: { integrity: number; dayCount: number };
   prestige: { level: number; multiplier: number };
-  settings: { hapticsEnabled: boolean; theme: ThemePreference };
+  settings: { hapticsEnabled: boolean; theme: ThemePreference; onboardingDismissed: boolean };
 }
