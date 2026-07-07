@@ -7,10 +7,12 @@ import { MODULE_COST_MULT, MODULES, costAtLevel } from '../config/halcyon-config
 import { recalculateCaps } from './caps';
 import type { GameState, Module, ModuleType, ResourceId } from './types';
 
-/** Phase 4 scope: production + utility modules. Fabricator needs a
- *  multi-input crafting system (RECIPES) not built yet; the defense/intel
- *  modules (Sentinel Array, Turret, Wall, Shield) are Phase 5's signature
- *  content and stay locked until incursions exist to justify them. */
+/** Phase 4 scope: production + utility modules, plus Training Camp (built
+ *  early as defender-assignment infrastructure Phase 5 can consume
+ *  directly). Fabricator needs a multi-input crafting system (RECIPES) not
+ *  built yet; the remaining defense/intel modules (Sentinel Array, Turret,
+ *  Wall, Shield) are Phase 5's signature content and stay locked until
+ *  incursions exist to justify them. */
 export const BUILDABLE_MODULE_TYPES: ModuleType[] = [
   'miningDrill',
   'hydroponics',
@@ -18,6 +20,7 @@ export const BUILDABLE_MODULE_TYPES: ModuleType[] = [
   'reactor',
   'storageDepot',
   'habitat',
+  'trainingCamp',
 ];
 
 export function getModuleCost(type: ModuleType, level: number): Partial<Record<ResourceId, number>> {

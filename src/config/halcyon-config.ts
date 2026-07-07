@@ -67,6 +67,7 @@ export const MODULES = {
   fabricator:   { name: 'Workshop',         buildCost: { scrap: 200, ore: 120 },         powerDemand: 6 },                       // crafts iron/tools
 
   // Defense & intel
+  trainingCamp:  { name: 'Training Camp',   buildCost: { scrap: 90, ore: 40 },           powerDemand: 3, maxWorkers: 4 },       // assign villagers as defenders (INCURSIONS.DEFENDER_VALUE_PER_COLONIST each)
   sentinelArray: { name: 'Watchtower',      buildCost: { scrap: 100, ore: 50 },          powerDemand: 4 },
   turret:        { name: 'Ballista',        buildCost: { scrap: 80, ore: 40 },           defenseValue: 15, powerDemand: 3 },
   perimeterWall: { name: 'Palisade',        buildCost: { scrap: 50, ore: 60 },           defenseValue: 8,  powerDemand: 0 }, // passive, never unpowered

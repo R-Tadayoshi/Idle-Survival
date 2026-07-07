@@ -4,8 +4,9 @@
  * a "+ Build" tile opening the build menu when anything's left to place.
  */
 import { useGameStore } from '../state/store';
-import { MANUAL_TAP_YIELD, MODULES, productionAtLevel } from '../config/halcyon-config';
+import { INCURSIONS, MANUAL_TAP_YIELD, MODULES, productionAtLevel } from '../config/halcyon-config';
 import { BUILDABLE_MODULE_TYPES, canAfford, getModuleCost } from '../engine/build';
+import { computeDefense } from '../engine/defense';
 import { computePower } from '../engine/power';
 import { RadarGlyph } from './RadarGlyph';
 import type { GameState, ModuleType, ResourceId } from '../engine/types';
@@ -27,6 +28,7 @@ const UTILITY_ICON: Partial<Record<ModuleType, string>> = {
   reactor: '💨',
   storageDepot: '📦',
   habitat: '🏠',
+  trainingCamp: '⚔️',
 };
 
 interface OutpostScreenProps {
@@ -45,6 +47,7 @@ export function OutpostScreen({ onOpenSettings, onOpenBuildMenu }: OutpostScreen
   const starving = game.resources.rations.amount <= 0;
   const idleColonists = game.colonists.total - game.colonists.assigned;
   const power = computePower(game);
+  const defense = computeDefense(game);
   const hasMoreToBuild = BUILDABLE_MODULE_TYPES.some((type) => !game.modules.some((m) => m.type === type));
 
   return (
@@ -57,7 +60,7 @@ export function OutpostScreen({ onOpenSettings, onOpenBuildMenu }: OutpostScreen
         <div className="topbar-meta">
           <span
             className={power.demand === 0 ? '' : power.powered ? 'power-ok' : 'power-warn'}
-            title={`Power supply ${power.supply} / demand ${power.demand}`}
+            title={`Power supply ${power.supply} / demand ${power.demand} — underpowered modules run at reduced output; future defenses like Turrets and Shields will need power too`}
           >
             ⚡ {power.supply}/{power.demand}
           </span>
@@ -107,6 +110,10 @@ export function OutpostScreen({ onOpenSettings, onOpenBuildMenu }: OutpostScreen
             <p className="radar-hint">No scan coverage — build a Watchtower to spot raiders coming.</p>
           </div>
         </div>
+        <p className="radar-defense">
+          🛡️ Defense rating: {defense} — assign villagers to a Training Camp to arm defenders. Raids are coming in a
+          future update.
+        </p>
       </section>
 
       <main className="module-grid">
@@ -155,6 +162,7 @@ function ModuleCard({ module, idleColonists, onExtract, onAssign, onUpgrade }: M
   const game = useGameStore((s) => s.game);
   const def = MODULES[module.type];
   const hasProduction = 'produces' in def && 'ratePerWorker' in def;
+  const hasWorkers = 'maxWorkers' in def;
   const maxWorkers = 'maxWorkers' in def ? def.maxWorkers : 0;
   const ratePerWorker = hasProduction ? productionAtLevel(def.ratePerWorker, module.level) : 0;
   const totalRate = ratePerWorker * module.assignedWorkers;
@@ -173,6 +181,12 @@ function ModuleCard({ module, idleColonists, onExtract, onAssign, onUpgrade }: M
     effect = `+${def.colonistCapBonus * module.level} villager cap`;
   } else if ('energyOutput' in def) {
     effect = `+${def.energyOutput * module.level} power supply`;
+  } else if (hasWorkers) {
+    // defense module (e.g. Training Camp): assigned villagers become defenders
+    effect =
+      module.assignedWorkers > 0
+        ? `+${module.assignedWorkers * INCURSIONS.DEFENDER_VALUE_PER_COLONIST} defense`
+        : 'Idle — assign a villager';
   } else {
     effect = '';
   }
@@ -192,9 +206,9 @@ function ModuleCard({ module, idleColonists, onExtract, onAssign, onUpgrade }: M
         </div>
       </div>
 
-      {hasProduction && (
+      {hasWorkers && (
         <div className="stepper-row">
-          <span className="module-tile-sub">Villagers</span>
+          <span className="module-tile-sub">{hasProduction ? 'Villagers' : 'Defenders'}</span>
           <div className="stepper">
             <button
               className="stepper-btn"
