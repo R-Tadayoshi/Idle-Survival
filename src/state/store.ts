@@ -26,6 +26,7 @@ interface GameStore {
   extract: (resourceId: ResourceId) => void;
   assignWorker: (moduleId: string, delta: number) => void;
   tick: (dtSeconds: number) => void;
+  resetGame: () => void;
 }
 
 export const useGameStore = create<GameStore>()((set) => ({
@@ -44,4 +45,5 @@ export const useGameStore = create<GameStore>()((set) => ({
   extract: (resourceId) => set((s) => ({ game: extractResource(s.game, resourceId) })),
   assignWorker: (moduleId, delta) => set((s) => ({ game: setAssignedWorkers(s.game, moduleId, delta) })),
   tick: (dtSeconds) => set((s) => ({ game: tickEngine(s.game, dtSeconds) })),
+  resetGame: () => set({ game: createNewGame() }),
 }));

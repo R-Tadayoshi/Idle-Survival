@@ -561,3 +561,20 @@ body {
   background: var(--accent);
   color: var(--accent-ink);
 }
+
+.danger-button {
+  padding: 6px 12px;
+  border: 1px solid var(--danger);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--danger);
+  font-size: 12px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.danger-button.confirming {
+  background: var(--danger);
+  color: var(--bg);
+}

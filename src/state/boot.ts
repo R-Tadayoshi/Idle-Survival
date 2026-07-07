@@ -13,10 +13,26 @@ import { useGameStore } from './store';
 
 const AUTOSAVE_INTERVAL_MS = 1000;
 
+let pendingSaveTimer: ReturnType<typeof setTimeout> | null = null;
+
 async function saveNow(): Promise<void> {
   const { game, setSaveStatus } = useGameStore.getState();
   await saveGame(game);
   setSaveStatus('saved');
+}
+
+/** Cancel any pending throttled save and write immediately. Call this before
+ *  anything that tears down the page synchronously — an in-flight IndexedDB
+ *  write started from `pagehide`/`visibilitychange` is not guaranteed to
+ *  finish before an actual navigation (e.g. the SW's own reload-on-update)
+ *  destroys the JS context, unlike backgrounding, where the page survives
+ *  long enough for the async write to land. */
+export async function flushPendingSave(): Promise<void> {
+  if (pendingSaveTimer !== null) {
+    clearTimeout(pendingSaveTimer);
+    pendingSaveTimer = null;
+  }
+  await saveNow();
 }
 
 export async function bootGame(): Promise<void> {
@@ -35,13 +51,12 @@ export async function bootGame(): Promise<void> {
   // trailing debounce would keep getting reset by each tick and never fire.
   // A throttle guarantees a flush at most AUTOSAVE_INTERVAL_MS after the
   // first change in a burst, continuous activity or not.
-  let timer: ReturnType<typeof setTimeout> | null = null;
   useGameStore.subscribe((state, prev) => {
     if (state.game === prev.game) return;
     state.setSaveStatus('dirty');
-    if (timer !== null) return;
-    timer = setTimeout(() => {
-      timer = null;
+    if (pendingSaveTimer !== null) return;
+    pendingSaveTimer = setTimeout(() => {
+      pendingSaveTimer = null;
       void saveNow();
     }, AUTOSAVE_INTERVAL_MS);
   });
@@ -50,11 +65,7 @@ export async function bootGame(): Promise<void> {
   // pause the live loop since iOS won't run it in the background anyway.
   const onHide = () => {
     useGameStore.getState().stampActive();
-    if (timer !== null) {
-      clearTimeout(timer);
-      timer = null;
-    }
-    void saveNow();
+    void flushPendingSave();
     stopLiveLoop();
   };
   document.addEventListener('visibilitychange', () => {

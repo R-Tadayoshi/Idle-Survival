@@ -11,9 +11,15 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      // autoUpdate: new SW activates immediately (skipWaiting + clientsClaim),
-      // so users are never locked on a stale cached build.
-      registerType: 'autoUpdate',
+      // 'prompt' (not 'autoUpdate'): autoUpdate's generated registerSW code
+      // calls window.location.reload() the instant a new SW takes control,
+      // with no hook to run first — which can land mid-write and clip the
+      // last <1s of unsaved progress (an in-flight IndexedDB save is not
+      // guaranteed to finish before a real navigation, unlike backgrounding,
+      // which just pauses the page and lets it finish). 'prompt' exposes
+      // onNeedRefresh in main.tsx, where we flush the save before reloading
+      // — same net effect (silent, automatic update), just save-safe.
+      registerType: 'prompt',
       includeAssets: ['icons/apple-touch-icon-180.png'],
       manifest: {
         name: 'HALCYON — Frontier Outpost',

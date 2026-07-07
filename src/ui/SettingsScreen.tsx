@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { useGameStore } from '../state/store';
+import { saveGame } from '../save/db';
 import type { ThemePreference } from '../engine/types';
 
 const THEME_OPTIONS: Array<{ id: ThemePreference; label: string }> = [
@@ -14,6 +16,22 @@ interface SettingsScreenProps {
 export function SettingsScreen({ onClose }: SettingsScreenProps) {
   const theme = useGameStore((s) => s.game.settings.theme);
   const setTheme = useGameStore((s) => s.setTheme);
+  const resetGame = useGameStore((s) => s.resetGame);
+  const setSaveStatus = useGameStore((s) => s.setSaveStatus);
+  const [confirmingReset, setConfirmingReset] = useState(false);
+
+  const handleReset = async () => {
+    if (!confirmingReset) {
+      setConfirmingReset(true);
+      return;
+    }
+    resetGame();
+    // Save immediately rather than waiting on the throttled autosave — a
+    // reset should never be lost to a crash/close before it flushes.
+    await saveGame(useGameStore.getState().game);
+    setSaveStatus('saved');
+    onClose();
+  };
 
   return (
     <div className="settings-overlay" onClick={onClose}>
@@ -37,6 +55,16 @@ export function SettingsScreen({ onClose }: SettingsScreenProps) {
               </button>
             ))}
           </div>
+        </div>
+        <div className="settings-row">
+          <span className="settings-label">Reset colony</span>
+          <button
+            className={`danger-button${confirmingReset ? ' confirming' : ''}`}
+            onClick={handleReset}
+            onBlur={() => setConfirmingReset(false)}
+          >
+            {confirmingReset ? 'Tap again to confirm' : 'Reset'}
+          </button>
         </div>
       </div>
     </div>

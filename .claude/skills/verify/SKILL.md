@@ -37,7 +37,11 @@ const context = await browser.newContext({ viewport: { width: 390, height: 844 }
   `orientation: portrait`, 3 icons incl. one `purpose: maskable`; also fetch
   `link[rel=apple-touch-icon]` → 200.
 - **Service worker:** `navigator.serviceWorker.ready`, then wait for
-  `navigator.serviceWorker.controller` (first install may need one reload to claim).
+  `navigator.serviceWorker.controller` (first install may need one reload to
+  claim — this is normal SW behavior, not specific to `autoUpdate` vs
+  `prompt` registerType; give the fallback reload its own generous timeout
+  rather than a shared/tight one, or a legitimate ~15s+15s wait reads as a
+  hang).
 - **Save:** open IndexedDB `halcyon` → store `saves` → key `primary` directly
   from `page.evaluate`. Wait for the `.save-pill` to read "saved" first
   (autosave is debounced ~1s). `seed` must be identical across reloads.
@@ -74,6 +78,28 @@ const context = await browser.newContext({ viewport: { width: 390, height: 844 }
   data. Either wait for `.save-pill` to read "saved" first, or read the live
   DOM (HUD text) instead of IndexedDB when you just need to confirm a click
   had an effect, not that it persisted.
+- **A raw `page.reload()` right after an unsaved change is NOT a valid
+  simulation of "close and reopen the app."** It races the throttled
+  autosave and can genuinely lose data — this is real (an in-flight
+  IndexedDB write from `pagehide` is not guaranteed to finish before an
+  actual navigation tears down the JS context), but it's not what real
+  backgrounding does. The real exit path is `visibilitychange` → `'hidden'`,
+  which leaves the page alive long enough for the async write to land —
+  simulate it with `document.dispatchEvent(new Event('visibilitychange'))`
+  after stubbing `document.visibilityState` via
+  `Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true })`,
+  *not* `page.reload()`. Only test a real reload for things that actually
+  trigger one in production (see below).
+- **The SW's own update-triggered reload is a real instance of the above
+  race** — `registerType: 'prompt'` + `onNeedRefresh` in main.tsx now calls
+  `flushPendingSave()` before `updateSW(true)` specifically to close this
+  gap (previously `autoUpdate` would `window.location.reload()`
+  unconditionally, any time a new deploy activated, mid-action or not). Full
+  end-to-end SW-update simulation (two deployed versions racing a live
+  session) isn't practical in this harness; verified instead by confirming
+  `flushPendingSave` + reset both write synchronously via the same
+  `saveGame` await chain, and that SW install/control behavior is otherwise
+  unchanged (see next point).
 - Reference scripts accumulate in the session scratchpad as
   `verify-phase{N}.mjs` + `verify-settings.mjs`; recreate from the flows
   above if gone. Update a phase's script's selectors (not just add a new
