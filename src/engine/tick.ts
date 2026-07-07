@@ -1,12 +1,20 @@
 /**
- * Advance the colony by dtSeconds: rations upkeep, then production for every
- * assigned, undamaged, powered module. Incursion resolution folds into this
- * same function in Phase 5 — shaped as a pure (state, dt) -> state function
- * so the live loop and the offline catch-up both call it unchanged.
+ * Advance the colony by dtSeconds: rations upkeep, production for every
+ * assigned/undamaged/powered module, then any incursions scheduled to
+ * arrive within this step. Shaped as a pure (state, dt) -> result function
+ * so the live loop and the offline catch-up both call it unchanged and
+ * produce byte-identical outcomes for the same wall-clock window.
+ *
+ * lastActiveAt doubles as tick's own simulated clock, not just an "exit
+ * stamp" — every call advances it by dtSeconds, which is what lets the
+ * incursion scheduler (a pure function of absolute time) know what window
+ * to check without a separate time parameter.
  */
 import { GLOBAL, MODULES, POWER, productionAtLevel } from '../config/halcyon-config';
+import { refreshCapNumbers } from './caps';
+import { advanceIncursions } from './incursions';
 import { computePower } from './power';
-import type { GameState, ResourceId } from './types';
+import type { GameState, Incursion, ResourceId } from './types';
 
 /** Snapshot of the production multiplier for the *current* state — the same
  *  hunger/power factors tick() applies internally, but evaluated against
@@ -21,8 +29,16 @@ export function currentProductionMultiplier(state: GameState): number {
   return hungerMult * powerMult;
 }
 
-export function tick(state: GameState, dtSeconds: number): GameState {
-  if (dtSeconds <= 0) return state;
+export interface TickResult {
+  state: GameState;
+  /** incursions resolved during this specific call, in order (empty most of
+   *  the time — the schedule averages hours between arrivals). Distinct
+   *  from state.incursions, which is the capped persisted history. */
+  resolvedIncursions: Incursion[];
+}
+
+export function tick(state: GameState, dtSeconds: number): TickResult {
+  if (dtSeconds <= 0) return { state, resolvedIncursions: [] };
 
   const rations = state.resources.rations;
   const working = state.colonists.assigned;
@@ -50,10 +66,17 @@ export function tick(state: GameState, dtSeconds: number): GameState {
 
     const res = resources[resourceId];
     // max(...) guards a resource already above cap (e.g. a cap that shrank
-    // after a structure was damaged in a later phase) — production adds,
-    // it must never claw back stock that was already there.
+    // after a structure was damaged by a breached incursion) — production
+    // adds, it must never claw back stock that was already there.
     resources[resourceId] = { ...res, amount: Math.max(res.amount, Math.min(res.cap, res.amount + gained)) };
   }
 
-  return { ...state, resources };
+  const windowEnd = state.lastActiveAt + dtSeconds * 1000;
+  const dayCount = Math.max(0, Math.floor((windowEnd - state.createdAt) / (GLOBAL.DAY_LENGTH_SECONDS * 1000)));
+  const advanced = advanceIncursions(
+    { ...state, resources, lastActiveAt: windowEnd, survival: { ...state.survival, dayCount } },
+    windowEnd,
+  );
+
+  return { state: refreshCapNumbers(advanced.state), resolvedIncursions: advanced.resolved };
 }

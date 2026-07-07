@@ -232,3 +232,64 @@ const context = await browser.newContext({ viewport: { width: 390, height: 844 }
   in def`) without the production-specific bits (tap-to-extract, resource
   icon). Watch for this same shape again in Phase 5 if any new module is
   workers-in/no-resources-out.
+
+## Phase 5 (incursions/Sentinels/raids) additions
+
+- **`recalculateCaps()`'s colonist-total-growth side effect must never run
+  from `tick()`.** It sets `colonists.total = Math.max(total, cap)` —
+  correct when triggered by an explicit build/upgrade/repair action (a
+  Habitat's bonus should land immediately), but calling it unconditionally
+  from the ~1s tick loop silently grants free colonists on literally the
+  first tick of a fresh game, since `STARTING_COLONISTS` (3) is below
+  `STARTING_COLONIST_CAP` (5) by design. This inflated idle-colonist ration
+  upkeep by ~55% and broke several Phase 2/3 assertions that assumed
+  `colonists.total` stays untouched absent a real build action. Fixed by
+  splitting `caps.ts` into `recalculateCaps` (full, action-triggered) and
+  `refreshCapNumbers` (cap *numbers* only, no total growth — what `tick()`
+  actually needs so a module damaged by a breach immediately shrinks
+  displayed caps without also handing out colonists). **Any future engine
+  change that calls a caps/colonist-affecting function from inside `tick()`
+  needs the same scrutiny** — check what it does to `colonists.total`, not
+  just the cap number.
+- **After a source-only fix (no rebuild), the E2E suite can still "pass"
+  against a stale `dist/` bundle if the preview server was already
+  running.** The above bug's fix was verified correct via `npx tsx` unit
+  tests against source directly, but the *E2E* suite kept failing until
+  `npm run build` + a fresh `vite preview` restart — `pkill -f "vite
+  preview"` before rebuilding, or the browser tests silently exercise old
+  JS. When a fix "should" resolve an E2E failure but doesn't, check the
+  bundle is actually fresh before re-diagnosing the app code.
+- **Simulating an offline gap that crosses a specific scheduled event
+  (e.g. "make the next incursion arrive during this catch-up") is easy to
+  get backwards.** Setting `save.lastActiveAt = save.createdAt + N*60*1000`
+  looks like "N minutes into the game," but since `createdAt` is already
+  ~real-`Date.now()` at colony creation, adding minutes to it pushes
+  `lastActiveAt` *into the future* relative to the real `Date.now()` the
+  test's `runCatchup` will actually use — producing a *negative* elapsed
+  window that clamps to 0, so nothing resolves. Don't touch `createdAt`
+  for this; the scheduler cursor (`nextIncursionArrivalAt`) is itself a
+  plain persisted field — set it directly to `Date.now() - 60_000` (due a
+  minute ago) and `lastActiveAt` to something further in the past (e.g.
+  `Date.now() - 10*60_000`), so the real catchup window on reload
+  genuinely spans across it.
+- **Pure-function tests (`npx tsx`) caught this session's only real
+  regression; the E2E suite didn't (until rebuilt) and couldn't have
+  caught the underlying determinism property at all.** For anything where
+  "online and offline produce identical outcomes" is a hard requirement
+  (the whole point of the incursion scheduler), write a direct test that
+  replays the *same* window through two different chunk sizes (e.g. 1s
+  steps vs 1800s steps) and asserts byte-identical resolution records —
+  `JSON.stringify(resolvedA) === JSON.stringify(resolvedB)` — not just "the
+  right number of incursions happened." A test that seeds `createNewGame`
+  with an explicit `seed` (not the default `crypto.getRandomValues` one)
+  is required for any assertion on *which* module gets damaged, since the
+  damage-target RNG is seed-dependent and an unseeded game varies every
+  run.
+- **Defense module power rule, for future reference:** any module with
+  `powerDemand > 0` throttles to `POWER.UNDERPOWERED_THROTTLE` (0.4x) when
+  the colony is underpowered — same rule as production — *except* Shield
+  Generator, which goes to exactly 0 (fully dead, per spec: "an unpowered
+  shield is dead"). Perimeter Wall has `powerDemand: 0` and is never
+  affected. This applies to Training Camp too (`powerDemand: 3`) — a
+  colony that's underpowered for unrelated reasons (e.g. no Windmill yet)
+  will show throttled defender contributions, which is correct, not a bug.

@@ -10,13 +10,16 @@
  */
 import { GLOBAL } from '../config/halcyon-config';
 import { tick } from './tick';
-import type { GameState, ResourceId } from './types';
+import type { GameState, Incursion, ResourceId } from './types';
 
 export interface CatchupResult {
   state: GameState;
   elapsedSeconds: number;
   /** post − pre amount per resource; omits resources that didn't move */
   resourceDeltas: Partial<Record<ResourceId, number>>;
+  /** every incursion resolved during the replayed window, in order — the
+   *  "battle report" half of the While You Were Away summary */
+  battleReport: Incursion[];
 }
 
 export function runCatchup(state: GameState, now: number): CatchupResult {
@@ -28,9 +31,12 @@ export function runCatchup(state: GameState, now: number): CatchupResult {
   const before = state.resources;
   let next = state;
   let remaining = elapsedSeconds;
+  const battleReport: Incursion[] = [];
   while (remaining > 0) {
     const step = Math.min(GLOBAL.TICK_SECONDS, remaining);
-    next = tick(next, step);
+    const result = tick(next, step);
+    next = result.state;
+    battleReport.push(...result.resolvedIncursions);
     remaining -= step;
   }
   next = { ...next, lastActiveAt: now };
@@ -41,5 +47,5 @@ export function runCatchup(state: GameState, now: number): CatchupResult {
     if (Math.abs(delta) > 1e-6) resourceDeltas[id] = delta;
   }
 
-  return { state: next, elapsedSeconds, resourceDeltas };
+  return { state: next, elapsedSeconds, resourceDeltas, battleReport };
 }

@@ -4,13 +4,21 @@
  * a "+ Build" tile opening the build menu when anything's left to place.
  */
 import { useGameStore } from '../state/store';
-import { INCURSIONS, MANUAL_TAP_YIELD, MODULES, productionAtLevel } from '../config/halcyon-config';
-import { BUILDABLE_MODULE_TYPES, canAfford, getModuleCost } from '../engine/build';
-import { computeDefense } from '../engine/defense';
+import { INCURSIONS, MANUAL_TAP_YIELD, MODULES, POWER, SENTINEL, productionAtLevel } from '../config/halcyon-config';
+import { BUILDABLE_MODULE_TYPES, canAfford, getModuleCost, getRepairCost } from '../engine/build';
+import { computeDefense, computeDefenseAgainst } from '../engine/defense';
+import { peekUpcomingIncursions } from '../engine/incursions';
 import { computePower } from '../engine/power';
 import { currentProductionMultiplier } from '../engine/tick';
+import { formatDuration } from './format';
 import { RadarGlyph } from './RadarGlyph';
-import type { GameState, ModuleType, ResourceId } from '../engine/types';
+import type { GameState, IncursionType, ModuleType, ResourceId } from '../engine/types';
+
+const TYPE_LABEL: Record<IncursionType, string> = {
+  swarm: 'Swarm',
+  armored: 'Armored',
+  raiders: 'Raiders',
+};
 
 const HUD_RESOURCES: Array<{ id: ResourceId; icon: string; label: string }> = [
   { id: 'scrap', icon: '🪵', label: 'Wood' },
@@ -30,6 +38,10 @@ const UTILITY_ICON: Partial<Record<ModuleType, string>> = {
   storageDepot: '📦',
   habitat: '🏠',
   trainingCamp: '⚔️',
+  sentinelArray: '🗼',
+  turret: '🏹',
+  perimeterWall: '🧱',
+  shieldGen: '💎',
 };
 
 interface OutpostScreenProps {
@@ -44,12 +56,22 @@ export function OutpostScreen({ onOpenSettings, onOpenBuildMenu }: OutpostScreen
   const extract = useGameStore((s) => s.extract);
   const assignWorker = useGameStore((s) => s.assignWorker);
   const upgradeModule = useGameStore((s) => s.upgradeModule);
+  const repairModule = useGameStore((s) => s.repairModule);
+  const liveBattleAlert = useGameStore((s) => s.liveBattleAlert);
+  const dismissLiveBattleAlert = useGameStore((s) => s.dismissLiveBattleAlert);
 
   const starving = game.resources.rations.amount <= 0;
   const idleColonists = game.colonists.total - game.colonists.assigned;
   const power = computePower(game);
-  const defense = computeDefense(game);
   const hasMoreToBuild = BUILDABLE_MODULE_TYPES.some((type) => !game.modules.some((m) => m.type === type));
+
+  const watchtower = game.modules.find((m) => m.type === 'sentinelArray' && !m.damaged);
+  const horizonHours = watchtower ? (SENTINEL.HORIZON_HOURS_BY_LEVEL[watchtower.level] ?? 0) : 0;
+  const nextIncursion = watchtower
+    ? peekUpcomingIncursions(game, Date.now() + horizonHours * 3600 * 1000, 1)[0]
+    : undefined;
+  const detailedIntel = (watchtower?.level ?? 0) >= SENTINEL.DETAILED_INTEL_LEVEL;
+  const defense = nextIncursion ? computeDefenseAgainst(game, nextIncursion.type) : computeDefense(game);
 
   return (
     <div className="outpost">
@@ -100,20 +122,53 @@ export function OutpostScreen({ onOpenSettings, onOpenBuildMenu }: OutpostScreen
         <p className="starving-banner">⚠ Not enough power — production reduced. Build or upgrade a Windmill.</p>
       )}
 
+      {liveBattleAlert && (
+        <p
+          className={`battle-alert ${liveBattleAlert.outcome === 'breached' ? 'battle-alert-breached' : 'battle-alert-repelled'}`}
+          onClick={dismissLiveBattleAlert}
+        >
+          {liveBattleAlert.outcome === 'repelled'
+            ? `⚔ ${TYPE_LABEL[liveBattleAlert.type]} raid repelled! Defense held at ${liveBattleAlert.defenseValue}. (tap to dismiss)`
+            : `⚠ ${TYPE_LABEL[liveBattleAlert.type]} raid breached our defenses! ${liveBattleAlert.damagedModuleType ? `${MODULES[liveBattleAlert.damagedModuleType].name} damaged. ` : ''}(tap to dismiss)`}
+        </p>
+      )}
+
       <section className="radar panel" aria-label="Threat radar">
-        <div className="radar-head">
-          <RadarGlyph size={36} dim />
-          <div>
-            <div className="radar-status">
-              <span className="radar-dot" />
-              WATCHTOWER OFFLINE
+        {watchtower ? (
+          <div className="radar-head">
+            <RadarGlyph size={36} />
+            <div>
+              <div className="radar-status radar-status-online">
+                <span className="radar-dot radar-dot-online" />
+                WATCHTOWER ONLINE — Lv.{watchtower.level}
+              </div>
+              {nextIncursion ? (
+                <p className="radar-hint">
+                  {TYPE_LABEL[nextIncursion.type]} raid inbound — ETA{' '}
+                  {formatDuration((nextIncursion.arrivalAt - Date.now()) / 1000)}, strength {nextIncursion.strength}.
+                  {detailedIntel &&
+                    ` Your defense: ${defense} vs incoming ${nextIncursion.strength}${defense >= nextIncursion.strength ? ' — prepared.' : ' — reinforce!'}`}
+                </p>
+              ) : (
+                <p className="radar-hint">No incursions detected within scan range ({horizonHours}h).</p>
+              )}
             </div>
-            <p className="radar-hint">No scan coverage — build a Watchtower to spot raiders coming.</p>
           </div>
-        </div>
+        ) : (
+          <div className="radar-head">
+            <RadarGlyph size={36} dim />
+            <div>
+              <div className="radar-status">
+                <span className="radar-dot" />
+                WATCHTOWER OFFLINE
+              </div>
+              <p className="radar-hint">No scan coverage — build a Watchtower to spot raiders coming.</p>
+            </div>
+          </div>
+        )}
         <p className="radar-defense">
-          🛡️ Defense rating: {defense} — assign villagers to a Training Camp to arm defenders. Raids are coming in a
-          future update.
+          🛡️ Defense rating: {defense} — assign villagers to a Training Camp, or build a Ballista, Palisade, or Ward
+          Stone to arm your defenses.
         </p>
       </section>
 
@@ -126,6 +181,7 @@ export function OutpostScreen({ onOpenSettings, onOpenBuildMenu }: OutpostScreen
             onExtract={extract}
             onAssign={(delta) => assignWorker(module.id, delta)}
             onUpgrade={() => upgradeModule(module.id)}
+            onRepair={() => repairModule(module.id)}
           />
         ))}
         {hasMoreToBuild && (
@@ -157,9 +213,10 @@ interface ModuleCardProps {
   onExtract: (resourceId: ResourceId) => void;
   onAssign: (delta: number) => void;
   onUpgrade: () => void;
+  onRepair: () => void;
 }
 
-function ModuleCard({ module, idleColonists, onExtract, onAssign, onUpgrade }: ModuleCardProps) {
+function ModuleCard({ module, idleColonists, onExtract, onAssign, onUpgrade, onRepair }: ModuleCardProps) {
   const game = useGameStore((s) => s.game);
   const def = MODULES[module.type];
   const hasProduction = 'produces' in def && 'ratePerWorker' in def;
@@ -176,8 +233,16 @@ function ModuleCard({ module, idleColonists, onExtract, onAssign, onUpgrade }: M
 
   const icon = resourceId ? RESOURCE_ICON[resourceId] : (UTILITY_ICON[module.type] ?? '🏗️');
 
+  const needsPower = 'powerDemand' in def && def.powerDemand > 0;
+  const powered = computePower(game).powered;
+  // A Shield Generator goes fully dead when unpowered; other powered
+  // defenses just throttle, same rule as production.
+  const defensePowerFactor = !needsPower || powered ? 1 : module.type === 'shieldGen' ? 0 : POWER.UNDERPOWERED_THROTTLE;
+
   let effect: string;
-  if (hasProduction) {
+  if (module.damaged) {
+    effect = '⚠ Damaged — repair to restore';
+  } else if (hasProduction) {
     effect = totalRate > 0 ? `+${totalRate.toFixed(2)}/s` : 'Idle — assign a villager';
   } else if ('capBonusAll' in def) {
     effect = `+${def.capBonusAll * module.level} all storage caps`;
@@ -189,17 +254,25 @@ function ModuleCard({ module, idleColonists, onExtract, onAssign, onUpgrade }: M
     // defense module (e.g. Training Camp): assigned villagers become defenders
     effect =
       module.assignedWorkers > 0
-        ? `+${module.assignedWorkers * INCURSIONS.DEFENDER_VALUE_PER_COLONIST} defense`
+        ? `+${Math.round(module.assignedWorkers * INCURSIONS.DEFENDER_VALUE_PER_COLONIST * defensePowerFactor)} defense`
         : 'Idle — assign a villager';
+  } else if ('defenseValue' in def) {
+    // passive defense module (Ballista/Palisade/Ward Stone)
+    effect =
+      defensePowerFactor === 0
+        ? 'Unpowered — inactive'
+        : `+${Math.round(def.defenseValue * module.level * defensePowerFactor)} defense`;
   } else {
     effect = '';
   }
 
   const upgradeCost = getModuleCost(module.type, module.level + 1);
   const canUpgrade = canAfford(game, upgradeCost);
+  const repairCost = getRepairCost(module.type);
+  const canRepair = canAfford(game, repairCost);
 
   return (
-    <div className="module-tile module-card panel">
+    <div className={`module-tile module-card panel${module.damaged ? ' module-card-damaged' : ''}`}>
       <div className="module-card-head">
         <span className="module-tile-icon">{icon}</span>
         <div className="module-card-title">
@@ -210,7 +283,7 @@ function ModuleCard({ module, idleColonists, onExtract, onAssign, onUpgrade }: M
         </div>
       </div>
 
-      {hasWorkers && (
+      {hasWorkers && !module.damaged && (
         <div className="stepper-row">
           <span className="module-tile-sub">{hasProduction ? 'Villagers' : 'Defenders'}</span>
           <div className="stepper">
@@ -237,18 +310,27 @@ function ModuleCard({ module, idleColonists, onExtract, onAssign, onUpgrade }: M
         </div>
       )}
 
-      {tapYield !== undefined && resourceId && (
+      {!module.damaged && tapYield !== undefined && resourceId && (
         <button className="module-card-tap" onClick={() => onExtract(resourceId)} disabled={atCap}>
           {atCap ? 'Storage full' : `Tap to gather +${tapYield}`}
         </button>
       )}
 
-      <button className="module-card-tap" onClick={onUpgrade} disabled={!canUpgrade}>
-        Upgrade to Lv.{module.level + 1} —{' '}
-        {(Object.entries(upgradeCost) as Array<[ResourceId, number]>)
-          .map(([id, amount]) => `${RESOURCE_ICON[id] ?? ''}${amount}`)
-          .join(' ')}
-      </button>
+      {module.damaged ? (
+        <button className="module-card-tap" onClick={onRepair} disabled={!canRepair}>
+          Repair —{' '}
+          {(Object.entries(repairCost) as Array<[ResourceId, number]>)
+            .map(([id, amount]) => `${RESOURCE_ICON[id] ?? ''}${amount}`)
+            .join(' ')}
+        </button>
+      ) : (
+        <button className="module-card-tap" onClick={onUpgrade} disabled={!canUpgrade}>
+          Upgrade to Lv.{module.level + 1} —{' '}
+          {(Object.entries(upgradeCost) as Array<[ResourceId, number]>)
+            .map(([id, amount]) => `${RESOURCE_ICON[id] ?? ''}${amount}`)
+            .join(' ')}
+        </button>
+      )}
     </div>
   );
 }

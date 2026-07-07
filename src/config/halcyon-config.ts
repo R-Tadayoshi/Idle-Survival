@@ -95,6 +95,16 @@ export const INCURSIONS = {
   BASE_INTERVAL_HOURS: 3,                // avg real-time gap between incursions
   INTERVAL_JITTER: 0.3,                  // ±30%, derived from seed (deterministic)
   INTERVAL_TIGHTEN_PER_DAY: 0.03,        // interval shrinks 3% per in-game day
+  MIN_INTERVAL_FACTOR: 0.25,             // ...but never shrinks below 25% of BASE_INTERVAL_HOURS
+
+  // How many resolved incursions to keep in the save for history/battle-report
+  // display. Capped so a long-lived colony's save doesn't grow unbounded —
+  // this trims the persisted log only, not the "while you were away" report
+  // for the window just replayed (that always shows everything that happened).
+  HISTORY_LIMIT: 20,
+
+  // Repair cost for a damaged module = its OWN level-1 build cost × this.
+  REPAIR_COST_MULT: 0.5,
 
   // strength(n) = BASE * GROWTH^n  (n = incursion index)
   BASE_STRENGTH: 12,

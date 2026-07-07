@@ -1,4 +1,5 @@
 import { GLOBAL, RESOURCES } from '../config/halcyon-config';
+import { firstIncursionArrival } from './incursions';
 import { SAVE_VERSION } from '../save/version';
 import type { GameState, Module, ResourceId, ResourceState } from './types';
 
@@ -31,6 +32,8 @@ export function createNewGame(now = Date.now()): GameState {
     modules: createStarterModules(),
     colonists: { total: GLOBAL.STARTING_COLONISTS, assigned: 0, cap: GLOBAL.STARTING_COLONIST_CAP },
     incursions: [],
+    nextIncursionIndex: 0,
+    nextIncursionArrivalAt: firstIncursionArrival(now),
     survival: { integrity: 100, dayCount: 0 },
     prestige: { level: 0, multiplier: 1 },
     settings: { hapticsEnabled: true, theme: 'system' },

@@ -1,5 +1,7 @@
+import { MODULES } from '../config/halcyon-config';
 import { useGameStore } from '../state/store';
-import type { ResourceId } from '../engine/types';
+import type { Incursion, ResourceId } from '../engine/types';
+import { formatDuration } from './format';
 
 const RESOURCE_META: Record<ResourceId, { icon: string; label: string }> = {
   scrap: { icon: '🪵', label: 'Wood' },
@@ -10,17 +12,22 @@ const RESOURCE_META: Record<ResourceId, { icon: string; label: string }> = {
   components: { icon: '🔧', label: 'Tools' },
 };
 
-/** e.g. 90000 -> "1d 1h", 5400 -> "1h 30m", 45 -> "45s" */
-function formatDuration(totalSeconds: number): string {
-  const s = Math.round(totalSeconds);
-  const d = Math.floor(s / 86400);
-  const h = Math.floor((s % 86400) / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const sec = s % 60;
-  if (d > 0) return `${d}d ${h}h`;
-  if (h > 0) return `${h}h ${m}m`;
-  if (m > 0) return `${m}m ${sec}s`;
-  return `${sec}s`;
+const TYPE_LABEL: Record<Incursion['type'], string> = {
+  swarm: 'Swarm',
+  armored: 'Armored',
+  raiders: 'Raiders',
+};
+
+function battleLine(incursion: Incursion): string {
+  const typeLabel = TYPE_LABEL[incursion.type];
+  if (incursion.outcome === 'repelled') {
+    return `${typeLabel} raid (strength ${incursion.strength}) — repelled, defense held at ${incursion.defenseValue}.`;
+  }
+  const lossParts = Object.entries(incursion.resourceLosses ?? {})
+    .map(([id, amount]) => `${RESOURCE_META[id as ResourceId].icon}${Math.round(amount as number)}`)
+    .join(' ');
+  const damage = incursion.damagedModuleType ? `; ${MODULES[incursion.damagedModuleType].name} damaged` : '';
+  return `${typeLabel} raid (strength ${incursion.strength}) — BREACHED, defense only ${incursion.defenseValue}. Lost ${lossParts || 'nothing stored'}${damage}.`;
 }
 
 export function OfflineSummaryModal() {
@@ -54,6 +61,19 @@ export function OfflineSummaryModal() {
             </div>
           ))}
         </div>
+        {summary.battleReport.length > 0 && (
+          <div className="battle-report">
+            <p className="module-tile-sub">Battle report</p>
+            {summary.battleReport.map((incursion) => (
+              <p
+                key={incursion.id}
+                className={incursion.outcome === 'breached' ? 'battle-breached' : 'battle-repelled'}
+              >
+                {battleLine(incursion)}
+              </p>
+            ))}
+          </div>
+        )}
         <button className="module-card-tap" onClick={dismiss}>
           Continue
         </button>

@@ -32,12 +32,21 @@ export type ThemePreference = 'system' | 'light' | 'dark';
 
 export interface Incursion {
   id: string;
-  /** epoch ms, from the deterministic seed-based schedule */
+  /** epoch ms, from the deterministic seed-based schedule; also the moment
+   *  it resolved, since resolution happens exactly at arrival */
   arrivalAt: number;
   strength: number;
   type: IncursionType;
   resolved?: boolean;
   outcome?: 'repelled' | 'breached';
+  /** total defense mounted against this incursion's type, after matchup and power factors */
+  defenseValue?: number;
+  /** fraction of each stockpile lost, only set when outcome is 'breached' */
+  lossPct?: number;
+  /** actual amount lost per resource, only set when outcome is 'breached' */
+  resourceLosses?: Partial<Record<ResourceId, number>>;
+  /** set if the breach's shortfall exceeded INCURSIONS.STRUCTURE_DAMAGE_SHORTFALL */
+  damagedModuleType?: ModuleType;
 }
 
 export interface GameState {
@@ -51,8 +60,17 @@ export interface GameState {
   resources: Record<ResourceId, ResourceState>;
   modules: Module[];
   colonists: { total: number; assigned: number; cap: number };
-  /** upcoming + recently resolved */
+  /** recently resolved (capped at INCURSIONS.HISTORY_LIMIT); upcoming ones
+   *  are never stored — they're recomputed on demand from the scheduler
+   *  cursor below, since they're purely a deterministic function of it */
   incursions: Incursion[];
+  /** deterministic incursion-schedule cursor: the index and arrival time of
+   *  the next incursion to consider. Persisted rather than recomputed from
+   *  index 0 every tick because each arrival depends on the one before it
+   *  (interval tightening is a function of day-count-at-previous-arrival) —
+   *  this is a cache of that recurrence's progress, not new source data. */
+  nextIncursionIndex: number;
+  nextIncursionArrivalAt: number;
   survival: { integrity: number; dayCount: number };
   prestige: { level: number; multiplier: number };
   settings: { hapticsEnabled: boolean; theme: ThemePreference };

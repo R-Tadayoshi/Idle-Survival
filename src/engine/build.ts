@@ -3,16 +3,14 @@
  * then scale it up by leveling rather than placing duplicates (matches how
  * maxWorkers/capBonusAll/etc. are defined per type, not per instance).
  */
-import { MODULE_COST_MULT, MODULES, costAtLevel } from '../config/halcyon-config';
+import { INCURSIONS, MODULE_COST_MULT, MODULES, costAtLevel } from '../config/halcyon-config';
 import { recalculateCaps } from './caps';
 import type { GameState, Module, ModuleType, ResourceId } from './types';
 
-/** Phase 4 scope: production + utility modules, plus Training Camp (built
- *  early as defender-assignment infrastructure Phase 5 can consume
- *  directly). Fabricator needs a multi-input crafting system (RECIPES) not
- *  built yet; the remaining defense/intel modules (Sentinel Array, Turret,
- *  Wall, Shield) are Phase 5's signature content and stay locked until
- *  incursions exist to justify them. */
+/** Fabricator still needs a multi-input crafting system (RECIPES) not built
+ *  yet, so it stays locked; everything else — including the Phase 5
+ *  defense/intel modules now that incursions exist to justify them — is
+ *  buildable. */
 export const BUILDABLE_MODULE_TYPES: ModuleType[] = [
   'miningDrill',
   'hydroponics',
@@ -21,6 +19,10 @@ export const BUILDABLE_MODULE_TYPES: ModuleType[] = [
   'storageDepot',
   'habitat',
   'trainingCamp',
+  'sentinelArray',
+  'turret',
+  'perimeterWall',
+  'shieldGen',
 ];
 
 export function getModuleCost(type: ModuleType, level: number): Partial<Record<ResourceId, number>> {
@@ -59,7 +61,7 @@ export function buildModule(state: GameState, type: ModuleType): GameState {
 
 export function upgradeModule(state: GameState, moduleId: string): GameState {
   const module = state.modules.find((m) => m.id === moduleId);
-  if (!module) return state;
+  if (!module || module.damaged) return state; // repair before upgrading
 
   const nextLevel = module.level + 1;
   const cost = getModuleCost(module.type, nextLevel);
@@ -69,5 +71,29 @@ export function upgradeModule(state: GameState, moduleId: string): GameState {
     ...state,
     resources: deductCost(state, cost),
     modules: state.modules.map((m) => (m.id === moduleId ? { ...m, level: nextLevel } : m)),
+  });
+}
+
+/** Repair cost is a flat fraction of the module's own level-1 build cost —
+ *  level-independent (a damaged Lv.3 module doesn't cost 3x to patch up). */
+export function getRepairCost(type: ModuleType): Partial<Record<ResourceId, number>> {
+  const cost: Partial<Record<ResourceId, number>> = {};
+  for (const [resource, amount] of Object.entries(MODULES[type].buildCost)) {
+    cost[resource as ResourceId] = Math.round(amount * INCURSIONS.REPAIR_COST_MULT);
+  }
+  return cost;
+}
+
+export function repairModule(state: GameState, moduleId: string): GameState {
+  const module = state.modules.find((m) => m.id === moduleId);
+  if (!module || !module.damaged) return state;
+
+  const cost = getRepairCost(module.type);
+  if (!canAfford(state, cost)) return state;
+
+  return recalculateCaps({
+    ...state,
+    resources: deductCost(state, cost),
+    modules: state.modules.map((m) => (m.id === moduleId ? { ...m, damaged: false } : m)),
   });
 }

@@ -12,7 +12,7 @@ export interface PowerState {
   powered: boolean;
 }
 
-export function computePower(state: GameState): PowerState {
+export function computePower(state: Pick<GameState, 'modules'>): PowerState {
   let supply = 0;
   let demand = 0;
   for (const module of state.modules) {

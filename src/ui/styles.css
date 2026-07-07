@@ -265,11 +265,19 @@ body {
   color: var(--text-dim);
 }
 
+.radar-status-online {
+  color: var(--accent);
+}
+
 .radar-dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
   background: var(--text-dim);
+}
+
+.radar-dot-online {
+  background: var(--accent);
 }
 
 .radar-hint {
@@ -363,6 +371,10 @@ body {
   border-color: var(--border);
 }
 
+.module-card-damaged {
+  border-color: var(--danger);
+}
+
 .module-card-head {
   display: flex;
   align-items: center;
@@ -453,6 +465,26 @@ body {
   color: var(--warn);
   font-size: 12px;
   line-height: 1.4;
+}
+
+/* ── Live battle alert (raid resolved during play) ───────────────────────── */
+.battle-alert {
+  margin: 0 12px 12px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 12px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.battle-alert-repelled {
+  border: 1px solid var(--accent);
+  color: var(--accent);
+}
+
+.battle-alert-breached {
+  border: 1px solid var(--danger);
+  color: var(--danger);
 }
 
 .module-tile-icon.dim {
@@ -620,6 +652,30 @@ body {
 
 .delta-negative {
   color: var(--text-dim);
+  font-weight: 600;
+}
+
+.battle-report {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.battle-report p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.battle-repelled {
+  color: var(--accent);
+}
+
+.battle-breached {
+  color: var(--danger);
   font-weight: 600;
 }
 

@@ -5,6 +5,7 @@
  * colony rather than crashing.
  */
 import { openDB, type IDBPDatabase } from 'idb';
+import { firstIncursionArrival } from '../engine/incursions';
 import { createStarterModules } from '../engine/newGame';
 import type { GameState } from '../engine/types';
 import { SAVE_VERSION } from './version';
@@ -42,6 +43,9 @@ function migrate(raw: unknown): GameState | null {
           hapticsEnabled: save.settings?.hapticsEnabled ?? true,
           theme: save.settings?.theme ?? 'system',
         },
+        incursions: save.incursions ?? [],
+        nextIncursionIndex: save.nextIncursionIndex ?? 0,
+        nextIncursionArrivalAt: save.nextIncursionArrivalAt ?? firstIncursionArrival(save.createdAt ?? save.lastActiveAt),
       };
     // future: case 1 → transform to 2, fall through …
     default:
