@@ -312,6 +312,13 @@ body {
      were clamping to the 110px minimum and overflowing into the row below
      instead of growing to fit their content. */
   flex: 1;
+  /* Flex items default to min-height: auto, which refuses to shrink below
+     content size — without this override, .module-grid grows to fit every
+     card instead of clipping to its allotted flex space, which makes the
+     overflow-y: auto below inert (nothing to scroll: the box is already
+     exactly as tall as its content) and pushes everything after it
+     (the footer) past the viewport instead. */
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 10px;
