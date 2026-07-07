@@ -56,7 +56,7 @@ function encodePng(size, rgba) {
 // ── Icon artwork ────────────────────────────────────────────────────────────
 const BG_CENTER = [8, 8, 8];
 const BG_EDGE = [0, 0, 0];
-const ACCENT = [0, 229, 199];
+const ACCENT = [10, 147, 150]; // #0a9396, matches the in-app teal accent
 
 const mix = (a, b, t) => a + (b - a) * t;
 const clamp01 = (v) => Math.max(0, Math.min(1, v));

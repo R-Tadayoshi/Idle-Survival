@@ -1,6 +1,7 @@
 /* HALCYON — global styles. True-black (dark) / true-white (light) monochrome
-   UI with a single gold accent color; emoji carry the only other color.
-   Portrait-first, iPhone safe areas respected, large tap targets. */
+   UI with a teal accent; amber (--warn) and rust-red (--danger) are reserved
+   for caution/threat states in later phases. Emoji carry the only other
+   color. Portrait-first, iPhone safe areas respected, large tap targets. */
 
 :root {
   color-scheme: dark;
@@ -9,12 +10,12 @@
   --surface-2: #131313;
   --border: rgba(255, 255, 255, 0.09);
   --border-strong: rgba(255, 255, 255, 0.18);
-  --accent: #c9a24e;
+  --accent: #0a9396;
   --accent-ink: #000000; /* text drawn on top of --accent */
   --text: #f2f2f2;
   --text-dim: #6e6e6e;
-  --warn: #ff9d3d;
-  --danger: #ff453a;
+  --warn: #ee9b00;
+  --danger: #bb3e03;
 }
 
 /* System preference drives the theme unless the user picks explicitly in
@@ -27,11 +28,12 @@
     --surface-2: #ececec;
     --border: rgba(0, 0, 0, 0.09);
     --border-strong: rgba(0, 0, 0, 0.18);
-    --accent: #96751f;
+    --accent: #005f73;
+    --accent-ink: #ffffff;
     --text: #111111;
     --text-dim: #6b6b6b;
-    --warn: #c96a12;
-    --danger: #d92d20;
+    --warn: #ca6702;
+    --danger: #ae2012;
   }
 }
 
@@ -42,11 +44,12 @@
   --surface-2: #ececec;
   --border: rgba(0, 0, 0, 0.09);
   --border-strong: rgba(0, 0, 0, 0.18);
-  --accent: #96751f;
+  --accent: #005f73;
+  --accent-ink: #ffffff;
   --text: #111111;
   --text-dim: #6b6b6b;
-  --warn: #c96a12;
-  --danger: #d92d20;
+  --warn: #ca6702;
+  --danger: #ae2012;
 }
 
 * {
