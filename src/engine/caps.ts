@@ -20,9 +20,17 @@ export function recalculateCaps(state: GameState): GameState {
     resources[id] = { ...resources[id], cap: RESOURCES[id].startCap + storageBonus };
   }
 
+  const colonistCap = GLOBAL.STARTING_COLONIST_CAP + colonistCapBonus;
   return {
     ...state,
     resources,
-    colonists: { ...state.colonists, cap: GLOBAL.STARTING_COLONIST_CAP + colonistCapBonus },
+    colonists: {
+      ...state.colonists,
+      cap: colonistCap,
+      // A Habitat's whole point is more colonists, and there's no separate
+      // recruit mechanic — its bonus takes effect immediately, same as a
+      // Storage Depot's cap bonus or a Reactor's power output.
+      total: Math.max(state.colonists.total, colonistCap),
+    },
   };
 }
