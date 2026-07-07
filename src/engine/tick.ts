@@ -26,7 +26,13 @@ export function currentProductionMultiplier(state: GameState): number {
   const hungry = state.resources.rations.amount <= 0;
   const hungerMult = hungry ? GLOBAL.HUNGRY_PRODUCTION_MULT : 1;
   const powerMult = computePower(state).powered ? 1 : POWER.UNDERPOWERED_THROTTLE;
-  return hungerMult * powerMult;
+  // The worse of the two, not both compounded — multiplying them (0.35 *
+  // 0.4 = 0.14x) can pin a colony below its own upkeep rate forever once
+  // both conditions hit at once, with no way to out-produce the drain no
+  // matter how many workers are assigned. That's an unrecoverable trap,
+  // which violates the game's own rule that a setback is a penalty, never
+  // a dead end.
+  return Math.min(hungerMult, powerMult);
 }
 
 export interface TickResult {
@@ -51,7 +57,10 @@ export function tick(state: GameState, dtSeconds: number): TickResult {
   const hungry = rationsAmount <= 0;
   const hungerMult = hungry ? GLOBAL.HUNGRY_PRODUCTION_MULT : 1;
   const powerMult = computePower(state).powered ? 1 : POWER.UNDERPOWERED_THROTTLE;
-  const productionMult = hungerMult * powerMult;
+  // See currentProductionMultiplier's comment: the worse single penalty,
+  // not both stacked — a starving AND underpowered colony must still be
+  // mathematically able to claw back out via more/better-assigned workers.
+  const productionMult = Math.min(hungerMult, powerMult);
 
   const resources = { ...state.resources, rations: { ...rations, amount: rationsAmount } };
 

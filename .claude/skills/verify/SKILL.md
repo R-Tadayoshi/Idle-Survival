@@ -293,3 +293,32 @@ const context = await browser.newContext({ viewport: { width: 390, height: 844 }
   affected. This applies to Training Camp too (`powerDemand: 3`) — a
   colony that's underpowered for unrelated reasons (e.g. no Windmill yet)
   will show throttled defender contributions, which is correct, not a bug.
+
+## Multiplicative throttles can create unrecoverable traps — check for this pattern
+
+Found via a user report ("food stays at 0 even with 5 workers on a Lv.2
+Farm"), reproduced with a direct `tick()` loop before touching the
+browser: `productionMult = hungerMult * powerMult` (0.35 × 0.4 = 0.14x)
+can pin a colony's rations *below its own upkeep rate* the instant it's
+simultaneously starving and underpowered — production can never
+out-produce the drain no matter how many workers are assigned, since
+adding workers adds upkeep too. The resource visibly sits at 0 forever
+(it's actually oscillating just under 1 each tick — `Math.floor()` in the
+HUD hides the fractional gain), which reads as "production is broken" to
+a player even though the code is doing exactly what the multiplication
+says. Fixed by using `Math.min(hungerMult, powerMult)` instead of
+multiplying — the single worst active penalty applies, not both stacked,
+which keeps recovery mathematically possible.
+
+**The general lesson: any time two independent throttle multipliers on
+the same pure-recovery resource (rations, most obviously) can both be
+active at once, check whether their product can still be beaten by the
+best case production the player can realistically reach** — if not, it's
+a soft-lock, not a difficulty tuning value, regardless of what the
+individual config numbers "look like" in isolation. This is exactly the
+kind of interaction easy to miss when reviewing each throttle
+independently (both looked reasonable on their own: 0.35x hungry, 0.4x
+underpowered) — reproduce the *combined* worst case with a direct
+`tick()` loop (`unit-starvation-spiral.mts` pattern: build up a
+compounding-risk scenario, run ~30 ticks, assert the resource actually
+climbs) before trusting that two throttles compose safely.
