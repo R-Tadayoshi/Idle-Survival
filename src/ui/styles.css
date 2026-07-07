@@ -67,6 +67,12 @@ body {
      visible screen. 100dvh tracks the real visible viewport; browsers that
      don't support it just ignore this line and keep the 100% fallback. */
   height: 100dvh;
+  /* iOS home-screen (standalone) PWAs have their own separate, older bug
+     where vh/%/dvh can still misreport the truly available height even
+     with no browser chrome onscreen at all. -webkit-fill-available is the
+     documented WebKit-specific fix for that case; non-WebKit engines treat
+     it as an invalid value and keep the 100dvh above. */
+  height: -webkit-fill-available;
   background: var(--bg);
   color: var(--text);
   font-family: -apple-system, 'SF Pro Text', 'Segoe UI', Roboto, system-ui, sans-serif;
@@ -79,6 +85,7 @@ body {
 #root {
   height: 100%;
   height: 100dvh;
+  height: -webkit-fill-available;
 }
 
 /* ── Radar glyph (brand mark + live status indicator) ───────────────────── */
