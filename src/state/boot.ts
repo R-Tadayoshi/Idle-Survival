@@ -4,7 +4,10 @@
  * on state changes, immediate save + lastActiveAt stamp when the app is
  * hidden or closed (pagehide/visibilitychange are the only reliable exit
  * signals on iOS; there is no background execution after that). Also starts
- * the live production tick while the tab is visible.
+ * the live production tick while the tab is visible, and replays elapsed
+ * time through runCatchup() both on initial load AND on returning from the
+ * background — merely backgrounding (not fully closing) the app still
+ * accrues offline progress, since the live loop is paused while hidden.
  */
 import { createNewGame } from '../engine/newGame';
 import { loadGame, requestPersistentStorage, saveGame } from '../save/db';
@@ -40,8 +43,10 @@ export async function bootGame(): Promise<void> {
 
   const existing = await loadGame();
   store.hydrate(existing ?? createNewGame());
-  if (!existing) await saveNow();
-  else store.setSaveStatus('saved');
+  if (existing) useGameStore.getState().runCatchup();
+  // Flush immediately rather than relying on the throttled subscriber below
+  // (not yet registered at this point) to pick up the catch-up's changes.
+  await saveNow();
 
   void requestPersistentStorage().then((granted) =>
     useGameStore.getState().setStoragePersisted(granted),
@@ -70,7 +75,10 @@ export async function bootGame(): Promise<void> {
   };
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') onHide();
-    else startLiveLoop();
+    else {
+      useGameStore.getState().runCatchup();
+      startLiveLoop();
+    }
   });
   window.addEventListener('pagehide', onHide);
 

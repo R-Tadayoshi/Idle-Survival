@@ -4,6 +4,8 @@
  */
 import { create } from 'zustand';
 import { extractResource, setAssignedWorkers } from '../engine/actions';
+import { runCatchup as runCatchupEngine, type CatchupResult } from '../engine/catchup';
+import { GLOBAL } from '../config/halcyon-config';
 import { createNewGame } from '../engine/newGame';
 import { tick as tickEngine } from '../engine/tick';
 import type { GameState, ResourceId, ThemePreference } from '../engine/types';
@@ -17,6 +19,9 @@ interface GameStore {
   saveStatus: SaveStatus;
   /** whether navigator.storage.persist() was granted (null = unknown yet) */
   storagePersisted: boolean | null;
+  /** set by runCatchup() when the gap since lastActiveAt is worth showing;
+   *  cleared on dismiss. null = no "while you were away" summary pending. */
+  offlineSummary: CatchupResult | null;
 
   hydrate: (game: GameState) => void;
   setSaveStatus: (s: SaveStatus) => void;
@@ -27,6 +32,10 @@ interface GameStore {
   assignWorker: (moduleId: string, delta: number) => void;
   tick: (dtSeconds: number) => void;
   resetGame: () => void;
+  /** Replay elapsed time since lastActiveAt through tick(), chunked. Surfaces
+   *  offlineSummary only if the gap clears OFFLINE_SUMMARY_MIN_SECONDS. */
+  runCatchup: (now?: number) => void;
+  dismissOfflineSummary: () => void;
 }
 
 export const useGameStore = create<GameStore>()((set) => ({
@@ -34,6 +43,7 @@ export const useGameStore = create<GameStore>()((set) => ({
   ready: false,
   saveStatus: 'loading',
   storagePersisted: null,
+  offlineSummary: null,
 
   hydrate: (game) => set({ game, ready: true }),
   setSaveStatus: (saveStatus) => set({ saveStatus }),
@@ -46,4 +56,11 @@ export const useGameStore = create<GameStore>()((set) => ({
   assignWorker: (moduleId, delta) => set((s) => ({ game: setAssignedWorkers(s.game, moduleId, delta) })),
   tick: (dtSeconds) => set((s) => ({ game: tickEngine(s.game, dtSeconds) })),
   resetGame: () => set({ game: createNewGame() }),
+  runCatchup: (now = Date.now()) =>
+    set((s) => {
+      const result = runCatchupEngine(s.game, now);
+      const showSummary = result.elapsedSeconds >= GLOBAL.OFFLINE_SUMMARY_MIN_SECONDS;
+      return { game: result.state, offlineSummary: showSummary ? result : null };
+    }),
+  dismissOfflineSummary: () => set({ offlineSummary: null }),
 }));

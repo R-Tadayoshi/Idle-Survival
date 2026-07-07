@@ -3,6 +3,7 @@ import { useGameStore } from '../state/store';
 import { OutpostScreen } from './OutpostScreen';
 import { RadarGlyph } from './RadarGlyph';
 import { SettingsScreen } from './SettingsScreen';
+import { OfflineSummaryModal } from './OfflineSummaryModal';
 
 export function App() {
   const ready = useGameStore((s) => s.ready);
@@ -29,6 +30,7 @@ export function App() {
     <>
       <OutpostScreen onOpenSettings={() => setSettingsOpen(true)} />
       {settingsOpen && <SettingsScreen onClose={() => setSettingsOpen(false)} />}
+      <OfflineSummaryModal />
     </>
   );
 }

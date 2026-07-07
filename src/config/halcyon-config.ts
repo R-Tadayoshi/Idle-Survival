@@ -14,6 +14,7 @@
 // ── Global ─────────────────────────────────────────────────────────────────
 export const GLOBAL = {
   MAX_OFFLINE_SECONDS: 12 * 60 * 60, // offline accumulation cap (12h)
+  OFFLINE_SUMMARY_MIN_SECONDS: 30,   // below this gap, catch up silently — not worth a modal
   TICK_SECONDS: 1,                   // live loop granularity
   DAY_LENGTH_SECONDS: 20 * 60,       // one day/night cycle = 20 min; night = 2nd half
   STARTING_COLONISTS: 3,

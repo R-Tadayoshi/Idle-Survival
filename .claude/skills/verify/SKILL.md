@@ -65,6 +65,26 @@ const context = await browser.newContext({ viewport: { width: 390, height: 844 }
   confirm the app backfills it on load (`migrate()` in `db.ts`). This is the
   realistic regression case — the user's *actual* saved game on their phone
   predates whatever field you just added.
+- **Offline catch-up (Phase 3):** write a save with `lastActiveAt` shifted
+  into the past (`Date.now() - N*1000`) via `writeSave()`, then reload — far
+  more reliable than waiting real time, and the only practical way to test
+  the `MAX_OFFLINE_SECONDS` cap (12h) at all. Check three thresholds: a gap
+  under `OFFLINE_SUMMARY_MIN_SECONDS` (30s) should catch up silently with no
+  modal; a longer one should show `.offline-elapsed` /
+  `.offline-delta-row`; a gap past `MAX_OFFLINE_SECONDS` should clamp the
+  displayed elapsed time, not show the full gap. Pick a short elapsed window
+  (well under `rations / upkeepRate`) when hand-deriving an expected
+  scrap/rations delta — otherwise you're implicitly asserting on the
+  mid-window hunger-transition math too, which needs its own dedicated
+  check (see below), not an incidental one with easy-to-flub arithmetic.
+- **Chunked-vs-naive catch-up accuracy** is a pure-function property, not
+  worth an E2E test — `npx tsx` a standalone `.mts` script that imports
+  `runCatchup`/`tick` directly from `src/engine/*.ts` and compares a single
+  big `tick(state, N)` call against `runCatchup` against a manual N×`tick(1)`
+  loop across a window that crosses both a hunger transition *and* stays
+  under any resource cap (a window long enough to hit a cap converges both
+  approaches to the same capped value and hides the bug you're checking
+  for). `tsx` isn't installed; `npx tsx <file>.mts` fetches it on first use.
 
 ## Gotchas
 

@@ -537,6 +537,37 @@ body {
   color: var(--text);
 }
 
+.offline-elapsed {
+  font-size: 14px;
+  color: var(--text);
+  margin: 0 0 12px;
+}
+
+.offline-deltas {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.offline-delta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.delta-positive {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.delta-negative {
+  color: var(--text-dim);
+  font-weight: 600;
+}
+
 .segmented {
   display: flex;
   background: var(--surface-2);
