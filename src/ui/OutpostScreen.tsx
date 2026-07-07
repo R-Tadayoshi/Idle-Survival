@@ -8,6 +8,7 @@ import { INCURSIONS, MANUAL_TAP_YIELD, MODULES, productionAtLevel } from '../con
 import { BUILDABLE_MODULE_TYPES, canAfford, getModuleCost } from '../engine/build';
 import { computeDefense } from '../engine/defense';
 import { computePower } from '../engine/power';
+import { currentProductionMultiplier } from '../engine/tick';
 import { RadarGlyph } from './RadarGlyph';
 import type { GameState, ModuleType, ResourceId } from '../engine/types';
 
@@ -165,7 +166,10 @@ function ModuleCard({ module, idleColonists, onExtract, onAssign, onUpgrade }: M
   const hasWorkers = 'maxWorkers' in def;
   const maxWorkers = 'maxWorkers' in def ? def.maxWorkers : 0;
   const ratePerWorker = hasProduction ? productionAtLevel(def.ratePerWorker, module.level) : 0;
-  const totalRate = ratePerWorker * module.assignedWorkers;
+  // Actual rate, not the nominal one — factors in the current hunger/power
+  // throttle so this matches what the player is really accruing per second,
+  // not an inflated best-case number (a fresh colony starts underpowered).
+  const totalRate = hasProduction ? ratePerWorker * module.assignedWorkers * currentProductionMultiplier(game) : 0;
   const resourceId = hasProduction ? (def.produces as ResourceId) : null;
   const tapYield = resourceId ? (MANUAL_TAP_YIELD as Partial<Record<ResourceId, number>>)[resourceId] : undefined;
   const atCap = resourceId ? game.resources[resourceId].amount >= game.resources[resourceId].cap : false;

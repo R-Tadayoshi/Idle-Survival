@@ -8,6 +8,19 @@ import { GLOBAL, MODULES, POWER, productionAtLevel } from '../config/halcyon-con
 import { computePower } from './power';
 import type { GameState, ResourceId } from './types';
 
+/** Snapshot of the production multiplier for the *current* state — the same
+ *  hunger/power factors tick() applies internally, but evaluated against
+ *  the state as it stands right now (not post-upkeep-this-tick), so the UI
+ *  can show an accurate "what am I actually producing" number without
+ *  waiting for the next tick. Not used by tick() itself — that computes
+ *  hunger from the post-upkeep ration amount for this specific step. */
+export function currentProductionMultiplier(state: GameState): number {
+  const hungry = state.resources.rations.amount <= 0;
+  const hungerMult = hungry ? GLOBAL.HUNGRY_PRODUCTION_MULT : 1;
+  const powerMult = computePower(state).powered ? 1 : POWER.UNDERPOWERED_THROTTLE;
+  return hungerMult * powerMult;
+}
+
 export function tick(state: GameState, dtSeconds: number): GameState {
   if (dtSeconds <= 0) return state;
 
