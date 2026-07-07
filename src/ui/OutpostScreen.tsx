@@ -52,7 +52,6 @@ interface OutpostScreenProps {
 export function OutpostScreen({ onOpenSettings, onOpenBuildMenu }: OutpostScreenProps) {
   const game = useGameStore((s) => s.game);
   const saveStatus = useGameStore((s) => s.saveStatus);
-  const storagePersisted = useGameStore((s) => s.storagePersisted);
   const extract = useGameStore((s) => s.extract);
   const assignWorker = useGameStore((s) => s.assignWorker);
   const upgradeModule = useGameStore((s) => s.upgradeModule);
@@ -89,6 +88,9 @@ export function OutpostScreen({ onOpenSettings, onOpenBuildMenu }: OutpostScreen
           </span>
           <span title={`Villager cap: ${game.colonists.cap}`}>
             👤 {game.colonists.assigned}/{game.colonists.total}
+          </span>
+          <span className={`save-pill save-${saveStatus}`}>
+            {saveStatus === 'saved' ? '● saved' : saveStatus === 'dirty' ? '○ saving…' : '… loading'}
           </span>
           <button className="icon-button" onClick={onOpenSettings} aria-label="Open settings">
             ⚙️
@@ -191,18 +193,6 @@ export function OutpostScreen({ onOpenSettings, onOpenBuildMenu }: OutpostScreen
           </button>
         )}
       </main>
-
-      <footer className="status-bar">
-        <span className={`save-pill save-${saveStatus}`}>
-          {saveStatus === 'saved' ? '● saved' : saveStatus === 'dirty' ? '○ saving…' : '… loading'}
-        </span>
-        <span
-          className={`status-pill${storagePersisted === true ? ' ok' : storagePersisted === false ? ' warn' : ''}`}
-          title="Persistent storage granted by the browser"
-        >
-          {storagePersisted === null ? '…' : '●'} storage
-        </span>
-      </footer>
     </div>
   );
 }

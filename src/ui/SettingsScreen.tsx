@@ -18,6 +18,7 @@ export function SettingsScreen({ onClose }: SettingsScreenProps) {
   const setTheme = useGameStore((s) => s.setTheme);
   const resetGame = useGameStore((s) => s.resetGame);
   const setSaveStatus = useGameStore((s) => s.setSaveStatus);
+  const storagePersisted = useGameStore((s) => s.storagePersisted);
   const [confirmingReset, setConfirmingReset] = useState(false);
 
   const handleReset = async () => {
@@ -65,6 +66,14 @@ export function SettingsScreen({ onClose }: SettingsScreenProps) {
           >
             {confirmingReset ? 'Tap again to confirm' : 'Reset'}
           </button>
+        </div>
+        <div className="settings-status">
+          <span
+            className={`status-pill${storagePersisted === true ? ' ok' : storagePersisted === false ? ' warn' : ''}`}
+            title="Persistent storage granted by the browser"
+          >
+            {storagePersisted === null ? '…' : '●'} storage
+          </span>
         </div>
       </div>
     </div>

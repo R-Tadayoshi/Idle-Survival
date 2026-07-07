@@ -524,13 +524,15 @@ body {
   color: var(--danger);
 }
 
-/* ── Status bar ──────────────────────────────────────────────────────────── */
-.status-bar {
+/* ── Save/storage status (moved into Settings — the outpost footer it used
+   to live in ate too much vertical space on the main screen) ───────────── */
+.settings-status {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 18px;
-  padding: 10px 14px;
+  margin-top: 16px;
+  padding-top: 16px;
   font-size: 12px;
   color: var(--text-dim);
   border-top: 1px solid var(--border);
