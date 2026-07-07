@@ -67,12 +67,13 @@ body {
      visible screen. 100dvh tracks the real visible viewport; browsers that
      don't support it just ignore this line and keep the 100% fallback. */
   height: 100dvh;
-  /* iOS home-screen (standalone) PWAs have their own separate, older bug
-     where vh/%/dvh can still misreport the truly available height even
-     with no browser chrome onscreen at all. -webkit-fill-available is the
-     documented WebKit-specific fix for that case; non-WebKit engines treat
-     it as an invalid value and keep the 100dvh above. */
-  height: -webkit-fill-available;
+  /* The page itself must never scroll — only .module-grid (the one region
+     designed to grow past its space) does, via its own overflow-y: auto.
+     This is a hard guarantee independent of whatever height quirk any given
+     browser/mode has: even if html/body end up sized taller than the
+     visible viewport, overflow: hidden clips the excess instead of letting
+     the whole page (topbar, HUD, footer and all) scroll as one unit. */
+  overflow: hidden;
   background: var(--bg);
   color: var(--text);
   font-family: -apple-system, 'SF Pro Text', 'Segoe UI', Roboto, system-ui, sans-serif;
@@ -85,7 +86,22 @@ body {
 #root {
   height: 100%;
   height: 100dvh;
-  height: -webkit-fill-available;
+}
+
+/* iOS home-screen (standalone) PWAs have their own separate, older bug
+   where vh/%/dvh can still misreport the truly available height even with
+   no browser chrome onscreen at all. -webkit-fill-available is the
+   documented WebKit fix for that — but it's unreliable enough elsewhere
+   (in some engines it sizes to content instead of the viewport, which
+   turns the whole page into one big scroll box) that it must stay scoped
+   to actual standalone/installed mode, never applied to a regular browser
+   tab. */
+@media (display-mode: standalone) {
+  html,
+  body,
+  #root {
+    height: -webkit-fill-available;
+  }
 }
 
 /* ── Radar glyph (brand mark + live status indicator) ───────────────────── */
