@@ -282,9 +282,15 @@ body {
   align-items: center;
   justify-content: center;
   gap: 6px;
+  width: 100%;
   text-align: center;
   padding: 14px;
   font-size: 14px;
+  font-family: inherit;
+  color: inherit;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
   transition:
     transform 0.15s ease,
     border-color 0.15s ease;
@@ -293,6 +299,16 @@ body {
 .module-tile:active {
   transform: scale(0.97);
   border-color: var(--border-strong);
+}
+
+.module-tile:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.module-tile:disabled:active {
+  transform: none;
+  border-color: var(--border);
 }
 
 .module-tile-icon {
