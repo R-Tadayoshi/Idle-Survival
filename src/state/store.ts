@@ -3,8 +3,9 @@
  * stays in src/engine; components only read state and call actions.
  */
 import { create } from 'zustand';
-import { extractResource } from '../engine/actions';
+import { extractResource, setAssignedWorkers } from '../engine/actions';
 import { createNewGame } from '../engine/newGame';
+import { tick as tickEngine } from '../engine/tick';
 import type { GameState, ResourceId, ThemePreference } from '../engine/types';
 
 export type SaveStatus = 'loading' | 'saved' | 'dirty';
@@ -23,6 +24,8 @@ interface GameStore {
   stampActive: (now?: number) => void;
   setTheme: (theme: ThemePreference) => void;
   extract: (resourceId: ResourceId) => void;
+  assignWorker: (moduleId: string, delta: number) => void;
+  tick: (dtSeconds: number) => void;
 }
 
 export const useGameStore = create<GameStore>()((set) => ({
@@ -39,4 +42,6 @@ export const useGameStore = create<GameStore>()((set) => ({
   setTheme: (theme) =>
     set((s) => ({ game: { ...s.game, settings: { ...s.game.settings, theme } } })),
   extract: (resourceId) => set((s) => ({ game: extractResource(s.game, resourceId) })),
+  assignWorker: (moduleId, delta) => set((s) => ({ game: setAssignedWorkers(s.game, moduleId, delta) })),
+  tick: (dtSeconds) => set((s) => ({ game: tickEngine(s.game, dtSeconds) })),
 }));

@@ -5,15 +5,14 @@
  * colony rather than crashing.
  */
 import { openDB, type IDBPDatabase } from 'idb';
+import { createStarterModules } from '../engine/newGame';
 import type { GameState } from '../engine/types';
+import { SAVE_VERSION } from './version';
 
 const DB_NAME = 'halcyon';
 const DB_VERSION = 1;
 const STORE = 'saves';
 const SLOT = 'primary';
-
-/** Bump when GameState shape changes, and add a case to migrate(). */
-export const SAVE_VERSION = 1;
 
 let dbPromise: Promise<IDBPDatabase> | null = null;
 
@@ -38,6 +37,7 @@ function migrate(raw: unknown): GameState | null {
       // than bumping SAVE_VERSION for every additive settings field.
       return {
         ...save,
+        modules: save.modules?.length ? save.modules : createStarterModules(),
         settings: {
           hapticsEnabled: save.settings?.hapticsEnabled ?? true,
           theme: save.settings?.theme ?? 'system',

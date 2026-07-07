@@ -1,14 +1,14 @@
 /**
  * Outpost (home) screen: resource HUD, threat radar, and the module grid.
- * Modules/build menu arrive in Phase 4 — for now the grid holds the manual
- * tap-to-extract action (config-driven from MANUAL_TAP_YIELD) plus locked
+ * The full build menu arrives in Phase 4 — for now the grid holds the one
+ * starter module (worker assignment + live production) plus locked
  * placeholders for what's still ahead.
  */
 import { useGameStore } from '../state/store';
-import { MANUAL_TAP_YIELD } from '../config/halcyon-config';
+import { MANUAL_TAP_YIELD, MODULES, productionAtLevel } from '../config/halcyon-config';
 import { RadarGlyph } from './RadarGlyph';
 import { LockGlyph } from './LockGlyph';
-import type { ResourceId } from '../engine/types';
+import type { GameState, ResourceId } from '../engine/types';
 
 const HUD_RESOURCES: Array<{ id: ResourceId; icon: string; label: string }> = [
   { id: 'scrap', icon: '🔩', label: 'Scrap' },
@@ -17,7 +17,10 @@ const HUD_RESOURCES: Array<{ id: ResourceId; icon: string; label: string }> = [
   { id: 'exotic', icon: '🔷', label: 'Exotic' },
 ];
 
-const TAP_RESOURCES = Object.keys(MANUAL_TAP_YIELD) as ResourceId[];
+const RESOURCE_ICON: Record<ResourceId, string> = Object.fromEntries(
+  HUD_RESOURCES.map(({ id, icon }) => [id, icon]),
+) as Record<ResourceId, string>;
+
 const MODULE_GRID_SLOTS = 4;
 
 interface OutpostScreenProps {
@@ -29,6 +32,11 @@ export function OutpostScreen({ onOpenSettings }: OutpostScreenProps) {
   const saveStatus = useGameStore((s) => s.saveStatus);
   const storagePersisted = useGameStore((s) => s.storagePersisted);
   const extract = useGameStore((s) => s.extract);
+  const assignWorker = useGameStore((s) => s.assignWorker);
+
+  const starving = game.resources.rations.amount <= 0;
+  const idleColonists = game.colonists.total - game.colonists.assigned;
+  const lockedSlots = Math.max(0, MODULE_GRID_SLOTS - game.modules.length);
 
   return (
     <div className="outpost">
@@ -39,8 +47,8 @@ export function OutpostScreen({ onOpenSettings }: OutpostScreenProps) {
         </div>
         <div className="topbar-meta">
           <span>☀️ Day {game.survival.dayCount + 1}</span>
-          <span>
-            👤 {game.colonists.total}/{game.colonists.cap}
+          <span title={`Colonist cap: ${game.colonists.cap}`}>
+            👤 {game.colonists.assigned}/{game.colonists.total}
           </span>
           <button className="icon-button" onClick={onOpenSettings} aria-label="Open settings">
             ⚙️
@@ -67,6 +75,10 @@ export function OutpostScreen({ onOpenSettings }: OutpostScreenProps) {
         })}
       </section>
 
+      {starving && (
+        <p className="starving-banner">⚠ Colonists starving — production reduced. Extract or build Rations.</p>
+      )}
+
       <section className="radar panel" aria-label="Threat radar">
         <div className="radar-head">
           <RadarGlyph size={36} dim />
@@ -81,26 +93,16 @@ export function OutpostScreen({ onOpenSettings }: OutpostScreenProps) {
       </section>
 
       <main className="module-grid">
-        {TAP_RESOURCES.map((id) => {
-          const meta = HUD_RESOURCES.find((r) => r.id === id)!;
-          const { amount, cap } = game.resources[id];
-          const atCap = amount >= cap;
-          return (
-            <button
-              key={id}
-              className="module-tile panel"
-              onClick={() => extract(id)}
-              disabled={atCap}
-            >
-              <span className="module-tile-icon">{meta.icon}</span>
-              <span>Salvage {meta.label}</span>
-              <span className="module-tile-sub">
-                {atCap ? 'Storage full' : `Tap for +${MANUAL_TAP_YIELD[id as keyof typeof MANUAL_TAP_YIELD]}`}
-              </span>
-            </button>
-          );
-        })}
-        {Array.from({ length: Math.max(0, MODULE_GRID_SLOTS - TAP_RESOURCES.length) }).map((_, i) => (
+        {game.modules.map((module) => (
+          <ModuleCard
+            key={module.id}
+            module={module}
+            idleColonists={idleColonists}
+            onExtract={extract}
+            onAssign={(delta) => assignWorker(module.id, delta)}
+          />
+        ))}
+        {Array.from({ length: lockedSlots }).map((_, i) => (
           <div className="module-tile empty" key={i}>
             <LockGlyph size={24} className="module-tile-icon dim" />
             <span className="module-tile-sub">Unlocks soon</span>
@@ -119,6 +121,72 @@ export function OutpostScreen({ onOpenSettings }: OutpostScreenProps) {
           {storagePersisted === null ? '…' : '●'} storage
         </span>
       </footer>
+    </div>
+  );
+}
+
+interface ModuleCardProps {
+  module: GameState['modules'][number];
+  idleColonists: number;
+  onExtract: (resourceId: ResourceId) => void;
+  onAssign: (delta: number) => void;
+}
+
+function ModuleCard({ module, idleColonists, onExtract, onAssign }: ModuleCardProps) {
+  const game = useGameStore((s) => s.game);
+  const def = MODULES[module.type];
+  const hasProduction = 'produces' in def && 'ratePerWorker' in def;
+  const maxWorkers = 'maxWorkers' in def ? def.maxWorkers : 0;
+  const ratePerWorker = hasProduction ? productionAtLevel(def.ratePerWorker, module.level) : 0;
+  const totalRate = ratePerWorker * module.assignedWorkers;
+  const resourceId = hasProduction ? (def.produces as ResourceId) : null;
+  const tapYield = resourceId ? (MANUAL_TAP_YIELD as Partial<Record<ResourceId, number>>)[resourceId] : undefined;
+  const atCap = resourceId ? game.resources[resourceId].amount >= game.resources[resourceId].cap : false;
+
+  return (
+    <div className="module-tile module-card panel">
+      <div className="module-card-head">
+        <span className="module-tile-icon">{resourceId ? RESOURCE_ICON[resourceId] : '🏗️'}</span>
+        <div className="module-card-title">
+          <span>
+            {def.name} <span className="module-card-level">Lv.{module.level}</span>
+          </span>
+          <span className="module-tile-sub">{totalRate > 0 ? `+${totalRate.toFixed(2)}/s` : 'Idle — assign a colonist'}</span>
+        </div>
+      </div>
+
+      {hasProduction && (
+        <div className="stepper-row">
+          <span className="module-tile-sub">Workers</span>
+          <div className="stepper">
+            <button
+              className="stepper-btn"
+              onClick={() => onAssign(-1)}
+              disabled={module.assignedWorkers <= 0}
+              aria-label="Unassign a worker"
+            >
+              −
+            </button>
+            <span className="stepper-value">
+              {module.assignedWorkers}/{maxWorkers}
+            </span>
+            <button
+              className="stepper-btn"
+              onClick={() => onAssign(1)}
+              disabled={module.assignedWorkers >= maxWorkers || idleColonists <= 0}
+              aria-label="Assign a worker"
+            >
+              +
+            </button>
+          </div>
+        </div>
+      )}
+
+      {tapYield !== undefined && resourceId && (
+        <button className="module-card-tap" onClick={() => onExtract(resourceId)} disabled={atCap}>
+          {atCap ? 'Storage full' : `Tap to salvage +${tapYield}`}
+        </button>
+      )}
     </div>
   );
 }

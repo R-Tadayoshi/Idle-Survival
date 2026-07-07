@@ -1,9 +1,8 @@
 /**
- * Manual player actions — currently just tap-to-extract, the only
- * interaction that exists before colonists/modules arrive in later phases.
- * Pure functions: given a state, return a new state, no side effects.
+ * Manual player actions — tap-to-extract and worker assignment. Pure
+ * functions: given a state, return a new state, no side effects.
  */
-import { MANUAL_TAP_YIELD } from '../config/halcyon-config';
+import { MANUAL_TAP_YIELD, MODULES } from '../config/halcyon-config';
 import type { GameState, ResourceId } from './types';
 
 const TAP_YIELD = MANUAL_TAP_YIELD as Partial<Record<ResourceId, number>>;
@@ -19,5 +18,26 @@ export function extractResource(state: GameState, resourceId: ResourceId): GameS
   return {
     ...state,
     resources: { ...state.resources, [resourceId]: { ...res, amount: newAmount } },
+  };
+}
+
+/** Change a module's assigned-worker count by `delta`, clamped to [0, maxWorkers]
+ *  and to the colonists actually idle (total − already assigned elsewhere). */
+export function setAssignedWorkers(state: GameState, moduleId: string, delta: number): GameState {
+  const module = state.modules.find((m) => m.id === moduleId);
+  if (!module) return state;
+
+  const def = MODULES[module.type];
+  const maxWorkers = 'maxWorkers' in def ? def.maxWorkers : 0;
+  const idle = state.colonists.total - state.colonists.assigned;
+
+  const newAssigned = Math.max(0, Math.min(module.assignedWorkers + delta, maxWorkers, module.assignedWorkers + idle));
+  if (newAssigned === module.assignedWorkers) return state;
+
+  const assignedDelta = newAssigned - module.assignedWorkers;
+  return {
+    ...state,
+    modules: state.modules.map((m) => (m.id === moduleId ? { ...m, assignedWorkers: newAssigned } : m)),
+    colonists: { ...state.colonists, assigned: state.colonists.assigned + assignedDelta },
   };
 }

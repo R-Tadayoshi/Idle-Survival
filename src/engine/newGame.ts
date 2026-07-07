@@ -1,11 +1,17 @@
 import { GLOBAL, RESOURCES } from '../config/halcyon-config';
-import { SAVE_VERSION } from '../save/db';
-import type { GameState, ResourceId, ResourceState } from './types';
+import { SAVE_VERSION } from '../save/version';
+import type { GameState, Module, ResourceId, ResourceState } from './types';
 
 function randomSeed(): number {
   const buf = new Uint32Array(1);
   crypto.getRandomValues(buf);
   return buf[0];
+}
+
+/** Every colony starts with a hand-built Salvage Rig — the build menu
+ *  (Phase 4) adds more; this is what you assign your first colonists to. */
+export function createStarterModules(): Module[] {
+  return [{ id: 'salvage-rig-1', type: 'salvageRig', level: 1, assignedWorkers: 0 }];
 }
 
 export function createNewGame(now = Date.now()): GameState {
@@ -22,7 +28,7 @@ export function createNewGame(now = Date.now()): GameState {
     createdAt: now,
     lastActiveAt: now,
     resources,
-    modules: [],
+    modules: createStarterModules(),
     colonists: { total: GLOBAL.STARTING_COLONISTS, assigned: 0, cap: GLOBAL.STARTING_COLONIST_CAP },
     incursions: [],
     survival: { integrity: 100, dayCount: 0 },
