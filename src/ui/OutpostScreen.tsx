@@ -11,18 +11,20 @@ import { RadarGlyph } from './RadarGlyph';
 import type { GameState, ModuleType, ResourceId } from '../engine/types';
 
 const HUD_RESOURCES: Array<{ id: ResourceId; icon: string; label: string }> = [
-  { id: 'scrap', icon: '🔩', label: 'Scrap' },
-  { id: 'ore', icon: '⛏️', label: 'Ore' },
-  { id: 'rations', icon: '🥫', label: 'Rations' },
-  { id: 'exotic', icon: '🔷', label: 'Exotic' },
+  { id: 'scrap', icon: '🪵', label: 'Wood' },
+  { id: 'ore', icon: '🪨', label: 'Stone' },
+  { id: 'rations', icon: '🍞', label: 'Food' },
+  { id: 'exotic', icon: '🔮', label: 'Mana' },
 ];
 
-const RESOURCE_ICON: Record<ResourceId, string> = Object.fromEntries(
-  HUD_RESOURCES.map(({ id, icon }) => [id, icon]),
-) as Record<ResourceId, string>;
+const RESOURCE_ICON: Record<ResourceId, string> = {
+  ...(Object.fromEntries(HUD_RESOURCES.map(({ id, icon }) => [id, icon])) as Record<ResourceId, string>),
+  alloy: '⚒️',
+  components: '🔧',
+};
 
 const UTILITY_ICON: Partial<Record<ModuleType, string>> = {
-  reactor: '⚡',
+  reactor: '💨',
   storageDepot: '📦',
   habitat: '🏠',
 };
@@ -50,7 +52,7 @@ export function OutpostScreen({ onOpenSettings, onOpenBuildMenu }: OutpostScreen
       <header className="topbar">
         <div className="brand">
           <RadarGlyph size={18} dim />
-          <span>HALCYON</span>
+          <span>HEARTHOLD</span>
         </div>
         <div className="topbar-meta">
           <span
@@ -59,7 +61,7 @@ export function OutpostScreen({ onOpenSettings, onOpenBuildMenu }: OutpostScreen
           >
             ⚡ {power.supply}/{power.demand}
           </span>
-          <span title={`Colonist cap: ${game.colonists.cap}`}>
+          <span title={`Villager cap: ${game.colonists.cap}`}>
             👤 {game.colonists.assigned}/{game.colonists.total}
           </span>
           <button className="icon-button" onClick={onOpenSettings} aria-label="Open settings">
@@ -88,10 +90,10 @@ export function OutpostScreen({ onOpenSettings, onOpenBuildMenu }: OutpostScreen
       </section>
 
       {starving && (
-        <p className="starving-banner">⚠ Colonists starving — production reduced. Extract or build Rations.</p>
+        <p className="starving-banner">⚠ Villagers going hungry — production reduced. Gather or build a Farm.</p>
       )}
       {!starving && power.demand > 0 && !power.powered && (
-        <p className="starving-banner">⚠ Underpowered — production reduced. Build or upgrade a Reactor.</p>
+        <p className="starving-banner">⚠ Not enough power — production reduced. Build or upgrade a Windmill.</p>
       )}
 
       <section className="radar panel" aria-label="Threat radar">
@@ -100,9 +102,9 @@ export function OutpostScreen({ onOpenSettings, onOpenBuildMenu }: OutpostScreen
           <div>
             <div className="radar-status">
               <span className="radar-dot" />
-              SENTINEL OFFLINE
+              WATCHTOWER OFFLINE
             </div>
-            <p className="radar-hint">No scan coverage — build a Sentinel Array to detect incursions.</p>
+            <p className="radar-hint">No scan coverage — build a Watchtower to spot raiders coming.</p>
           </div>
         </div>
       </section>
@@ -164,11 +166,11 @@ function ModuleCard({ module, idleColonists, onExtract, onAssign, onUpgrade }: M
 
   let effect: string;
   if (hasProduction) {
-    effect = totalRate > 0 ? `+${totalRate.toFixed(2)}/s` : 'Idle — assign a colonist';
+    effect = totalRate > 0 ? `+${totalRate.toFixed(2)}/s` : 'Idle — assign a villager';
   } else if ('capBonusAll' in def) {
     effect = `+${def.capBonusAll * module.level} all storage caps`;
   } else if ('colonistCapBonus' in def) {
-    effect = `+${def.colonistCapBonus * module.level} colonist cap`;
+    effect = `+${def.colonistCapBonus * module.level} villager cap`;
   } else if ('energyOutput' in def) {
     effect = `+${def.energyOutput * module.level} power supply`;
   } else {
@@ -192,13 +194,13 @@ function ModuleCard({ module, idleColonists, onExtract, onAssign, onUpgrade }: M
 
       {hasProduction && (
         <div className="stepper-row">
-          <span className="module-tile-sub">Workers</span>
+          <span className="module-tile-sub">Villagers</span>
           <div className="stepper">
             <button
               className="stepper-btn"
               onClick={() => onAssign(-1)}
               disabled={module.assignedWorkers <= 0}
-              aria-label="Unassign a worker"
+              aria-label="Unassign a villager"
             >
               −
             </button>
@@ -209,7 +211,7 @@ function ModuleCard({ module, idleColonists, onExtract, onAssign, onUpgrade }: M
               className="stepper-btn"
               onClick={() => onAssign(1)}
               disabled={module.assignedWorkers >= maxWorkers || idleColonists <= 0}
-              aria-label="Assign a worker"
+              aria-label="Assign a villager"
             >
               +
             </button>
@@ -219,7 +221,7 @@ function ModuleCard({ module, idleColonists, onExtract, onAssign, onUpgrade }: M
 
       {tapYield !== undefined && resourceId && (
         <button className="module-card-tap" onClick={() => onExtract(resourceId)} disabled={atCap}>
-          {atCap ? 'Storage full' : `Tap to salvage +${tapYield}`}
+          {atCap ? 'Storage full' : `Tap to gather +${tapYield}`}
         </button>
       )}
 

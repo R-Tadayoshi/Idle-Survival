@@ -4,11 +4,11 @@ import { MODULES } from '../config/halcyon-config';
 import type { ResourceId } from '../engine/types';
 
 const RESOURCE_ICON: Record<ResourceId, string> = {
-  scrap: '🔩',
-  ore: '⛏️',
-  rations: '🥫',
-  exotic: '🔷',
-  alloy: '🧱',
+  scrap: '🪵',
+  ore: '🪨',
+  rations: '🍞',
+  exotic: '🔮',
+  alloy: '⚒️',
   components: '🔧',
 };
 

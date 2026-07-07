@@ -23,8 +23,8 @@ export function App() {
     return (
       <div className="boot-screen">
         <RadarGlyph size={64} spinning />
-        <div className="boot-title">HALCYON</div>
-        <div className="boot-sub">establishing uplink…</div>
+        <div className="boot-title">HEARTHOLD</div>
+        <div className="boot-sub">stoking the hearth…</div>
       </div>
     );
   }

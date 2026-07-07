@@ -25,8 +25,9 @@ export const GLOBAL = {
 } as const;
 
 // ── Resources ──────────────────────────────────────────────────────────────
-// Energy is NOT stockpiled — it's a supply/demand balance (reactor output vs
+// Power is NOT stockpiled — it's a supply/demand balance (Windmill output vs
 // summed module powerDemand). If supply < demand, powered modules throttle.
+// Display names/icons live in the UI layer (ResourceId keys are unchanged).
 export const RESOURCES = {
   scrap:   { startAmount: 25, startCap: 200 },
   ore:     { startAmount: 0,  startCap: 200 },
@@ -52,22 +53,24 @@ export const POWER = { UNDERPOWERED_THROTTLE: 0.4 } as const;
 export const MODULE_COST_MULT = 1.6;     // default cost growth per level
 export const MODULE_PRODUCTION_MULT = 1.5; // default output growth per level
 
+// name fields are display-only (medieval reskin) — object keys, balance
+// numbers, and buildCost resource ids are unchanged, so no save migration.
 export const MODULES = {
-  salvageRig:   { name: 'Salvage Rig',      buildCost: { scrap: 40 },                    produces: 'scrap',   ratePerWorker: 0.5,  powerDemand: 2, maxWorkers: 5 },
-  miningDrill:  { name: 'Mining Drill',     buildCost: { scrap: 60, ore: 0 },            produces: 'ore',     ratePerWorker: 0.35, powerDemand: 3, maxWorkers: 5 },
-  hydroponics:  { name: 'Hydroponics Bay',  buildCost: { scrap: 50 },                    produces: 'rations', ratePerWorker: 0.5,  powerDemand: 2, maxWorkers: 5 },
-  resonanceLab: { name: 'Resonance Lab',    buildCost: { scrap: 150, ore: 100 },         produces: 'exotic',  ratePerWorker: 0.05, powerDemand: 5, maxWorkers: 3 },
+  salvageRig:   { name: "Woodcutter's Camp", buildCost: { scrap: 40 },                    produces: 'scrap',   ratePerWorker: 0.5,  powerDemand: 2, maxWorkers: 5 },
+  miningDrill:  { name: 'Quarry',           buildCost: { scrap: 60, ore: 0 },            produces: 'ore',     ratePerWorker: 0.35, powerDemand: 3, maxWorkers: 5 },
+  hydroponics:  { name: 'Farm',             buildCost: { scrap: 50 },                    produces: 'rations', ratePerWorker: 0.5,  powerDemand: 2, maxWorkers: 5 },
+  resonanceLab: { name: 'Mystic Well',      buildCost: { scrap: 150, ore: 100 },         produces: 'exotic',  ratePerWorker: 0.05, powerDemand: 5, maxWorkers: 3 },
 
-  reactor:      { name: 'Reactor',          buildCost: { scrap: 80, ore: 40 },           energyOutput: 15,    powerDemand: 0 }, // +15 supply per level
-  storageDepot: { name: 'Storage Depot',    buildCost: { scrap: 60, ore: 30 },           capBonusAll: 250,    powerDemand: 1 }, // +250 to every cap per level
-  habitat:      { name: 'Habitat Module',   buildCost: { scrap: 70, ore: 30 },           colonistCapBonus: 2, powerDemand: 2 }, // +2 colonist cap per level
-  fabricator:   { name: 'Fabricator',       buildCost: { scrap: 200, ore: 120 },         powerDemand: 6 },                       // crafts alloy/components
+  reactor:      { name: 'Windmill',         buildCost: { scrap: 80, ore: 40 },           energyOutput: 15,    powerDemand: 0 }, // +15 supply per level
+  storageDepot: { name: 'Storehouse',       buildCost: { scrap: 60, ore: 30 },           capBonusAll: 250,    powerDemand: 1 }, // +250 to every cap per level
+  habitat:      { name: 'Cottage',          buildCost: { scrap: 70, ore: 30 },           colonistCapBonus: 2, powerDemand: 2 }, // +2 colonist cap per level
+  fabricator:   { name: 'Workshop',         buildCost: { scrap: 200, ore: 120 },         powerDemand: 6 },                       // crafts iron/tools
 
   // Defense & intel
-  sentinelArray: { name: 'Sentinel Array',  buildCost: { scrap: 100, ore: 50 },          powerDemand: 4 },
-  turret:        { name: 'Turret',          buildCost: { scrap: 80, ore: 40 },           defenseValue: 15, powerDemand: 3 },
-  perimeterWall: { name: 'Perimeter Wall',  buildCost: { scrap: 50, ore: 60 },           defenseValue: 8,  powerDemand: 0 }, // passive, never unpowered
-  shieldGen:     { name: 'Shield Generator', buildCost: { scrap: 150, ore: 80, exotic: 10 }, defenseValue: 40, powerDemand: 8 }, // dead if unpowered
+  sentinelArray: { name: 'Watchtower',      buildCost: { scrap: 100, ore: 50 },          powerDemand: 4 },
+  turret:        { name: 'Ballista',        buildCost: { scrap: 80, ore: 40 },           defenseValue: 15, powerDemand: 3 },
+  perimeterWall: { name: 'Palisade',        buildCost: { scrap: 50, ore: 60 },           defenseValue: 8,  powerDemand: 0 }, // passive, never unpowered
+  shieldGen:     { name: 'Ward Stone',      buildCost: { scrap: 150, ore: 80, exotic: 10 }, defenseValue: 40, powerDemand: 8 }, // dead if unpowered
 } as const;
 
 // Crafting recipes (Fabricator) — consumes base, outputs crafted, per second per worker

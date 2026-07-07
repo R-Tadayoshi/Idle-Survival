@@ -22,10 +22,10 @@ export default defineConfig({
       registerType: 'prompt',
       includeAssets: ['icons/apple-touch-icon-180.png'],
       manifest: {
-        name: 'HALCYON — Frontier Outpost',
-        short_name: 'HALCYON',
+        name: 'Hearthold — Frontier Village',
+        short_name: 'Hearthold',
         description:
-          'Command a colony outpost on a hostile alien frontier. Extract, build, and defend against telegraphed incursions — even while away.',
+          'Found a frontier village, gather wood and stone, and defend your hearth against raiders — even while you\'re away.',
         display: 'standalone',
         orientation: 'portrait',
         start_url: base,

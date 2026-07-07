@@ -2,12 +2,12 @@ import { useGameStore } from '../state/store';
 import type { ResourceId } from '../engine/types';
 
 const RESOURCE_META: Record<ResourceId, { icon: string; label: string }> = {
-  scrap: { icon: '🔩', label: 'Scrap' },
-  ore: { icon: '⛏️', label: 'Ore' },
-  rations: { icon: '🥫', label: 'Rations' },
-  exotic: { icon: '🔷', label: 'Exotic' },
-  alloy: { icon: '🧱', label: 'Alloy' },
-  components: { icon: '🔧', label: 'Components' },
+  scrap: { icon: '🪵', label: 'Wood' },
+  ore: { icon: '🪨', label: 'Stone' },
+  rations: { icon: '🍞', label: 'Food' },
+  exotic: { icon: '🔮', label: 'Mana' },
+  alloy: { icon: '⚒️', label: 'Iron' },
+  components: { icon: '🔧', label: 'Tools' },
 };
 
 /** e.g. 90000 -> "1d 1h", 5400 -> "1h 30m", 45 -> "45s" */

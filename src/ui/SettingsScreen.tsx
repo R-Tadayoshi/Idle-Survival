@@ -57,7 +57,7 @@ export function SettingsScreen({ onClose }: SettingsScreenProps) {
           </div>
         </div>
         <div className="settings-row">
-          <span className="settings-label">Reset colony</span>
+          <span className="settings-label">Reset village</span>
           <button
             className={`danger-button${confirmingReset ? ' confirming' : ''}`}
             onClick={handleReset}
