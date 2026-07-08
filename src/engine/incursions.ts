@@ -124,7 +124,7 @@ interface ResolveResult {
 }
 
 function resolveOne(
-  state: Pick<GameState, 'resources' | 'modules' | 'seed'>,
+  state: Pick<GameState, 'resources' | 'modules' | 'seed' | 'military'>,
   scheduled: ScheduledIncursion,
 ): ResolveResult {
   const defenseValue = computeDefenseAgainst(state, scheduled.type);
@@ -213,7 +213,7 @@ export function advanceIncursions(state: GameState, windowEnd: number): AdvanceR
     const scheduled: ScheduledIncursion = { index, arrivalAt, ...rollTypeAndStrength(state.seed, index) };
 
     if (modules.some((m) => m.type === 'sentinelArray' && !m.damaged)) {
-      const outcome = resolveOne({ resources, modules, seed: state.seed }, scheduled);
+      const outcome = resolveOne({ resources, modules, seed: state.seed, military: state.military }, scheduled);
       resources = outcome.resources;
       modules = outcome.modules;
       incursions = [...incursions, outcome.record].slice(-INCURSIONS.HISTORY_LIMIT);

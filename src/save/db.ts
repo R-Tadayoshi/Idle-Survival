@@ -33,12 +33,26 @@ function migrate(raw: unknown): GameState | null {
   if (typeof raw !== 'object' || raw === null || !('version' in raw)) return null;
   const save = raw as GameState;
   switch (save.version) {
-    case SAVE_VERSION:
+    case SAVE_VERSION: {
+      // A save from before the military rework used Training Camp's
+      // assignedWorkers as permanent flat defenders — migrate them
+      // straight into trained Soldiers (already earned, not re-queued into
+      // training) rather than losing their defense contribution, and zero
+      // the module's assignedWorkers since it now means "currently
+      // training", a fundamentally different thing.
+      const modules = save.modules?.length ? save.modules : createStarterModules();
+      const priorTrainingCampWorkers = save.military
+        ? 0
+        : (modules.find((m) => m.type === 'trainingCamp')?.assignedWorkers ?? 0);
+      const migratedModules = save.military
+        ? modules
+        : modules.map((m) => (m.type === 'trainingCamp' ? { ...m, assignedWorkers: 0 } : m));
+
       // Defensively fill fields added after a save was first written, rather
       // than bumping SAVE_VERSION for every additive settings field.
       return {
         ...save,
-        modules: save.modules?.length ? save.modules : createStarterModules(),
+        modules: migratedModules,
         settings: {
           hapticsEnabled: save.settings?.hapticsEnabled ?? true,
           theme: save.settings?.theme ?? 'system',
@@ -51,7 +65,9 @@ function migrate(raw: unknown): GameState | null {
         incursions: save.incursions ?? [],
         nextIncursionIndex: save.nextIncursionIndex ?? 0,
         nextIncursionArrivalAt: save.nextIncursionArrivalAt ?? firstIncursionArrival(save.createdAt ?? save.lastActiveAt),
+        military: save.military ?? { soldiers: priorTrainingCampWorkers, archers: 0, training: [] },
       };
+    }
     // future: case 1 → transform to 2, fall through …
     default:
       return null;

@@ -30,6 +30,25 @@ export type IncursionType = 'swarm' | 'armored' | 'raiders';
 
 export type ThemePreference = 'system' | 'light' | 'dark';
 
+export type TroopType = 'soldier' | 'archer';
+
+/** A batch of villagers currently training as `type`. Fixed `completesAt`,
+ *  set once when the order is created — additional villagers can join an
+ *  already-open order (incrementing `count`) without resetting the timer,
+ *  so queuing more up never delays the ones already in progress. */
+export interface TrainingOrder {
+  id: string;
+  type: TroopType;
+  count: number;
+  completesAt: number;
+}
+
+export interface Military {
+  soldiers: number;
+  archers: number;
+  training: TrainingOrder[];
+}
+
 export interface Incursion {
   id: string;
   /** epoch ms, from the deterministic seed-based schedule; also the moment
@@ -71,6 +90,7 @@ export interface GameState {
    *  this is a cache of that recurrence's progress, not new source data. */
   nextIncursionIndex: number;
   nextIncursionArrivalAt: number;
+  military: Military;
   survival: { integrity: number; dayCount: number };
   prestige: { level: number; multiplier: number };
   settings: { hapticsEnabled: boolean; theme: ThemePreference; onboardingDismissed: boolean };

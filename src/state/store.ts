@@ -11,9 +11,10 @@ import {
 } from '../engine/build';
 import { runCatchup as runCatchupEngine, type CatchupResult } from '../engine/catchup';
 import { GLOBAL } from '../config/halcyon-config';
+import { setTraining } from '../engine/military';
 import { createNewGame } from '../engine/newGame';
 import { tick as tickEngine } from '../engine/tick';
-import type { GameState, Incursion, ModuleType, ResourceId, ThemePreference } from '../engine/types';
+import type { GameState, Incursion, ModuleType, ResourceId, ThemePreference, TroopType } from '../engine/types';
 
 export type SaveStatus = 'loading' | 'saved' | 'dirty';
 
@@ -49,6 +50,7 @@ interface GameStore {
   buildModule: (type: ModuleType) => void;
   upgradeModule: (moduleId: string) => void;
   repairModule: (moduleId: string) => void;
+  setTraining: (type: TroopType, delta: number) => void;
   /** Replay elapsed time since lastActiveAt through tick(), chunked. Surfaces
    *  offlineSummary only if the gap clears OFFLINE_SUMMARY_MIN_SECONDS. */
   runCatchup: (now?: number) => void;
@@ -89,6 +91,7 @@ export const useGameStore = create<GameStore>()((set) => ({
   buildModule: (type) => set((s) => ({ game: buildModuleEngine(s.game, type) })),
   upgradeModule: (moduleId) => set((s) => ({ game: upgradeModuleEngine(s.game, moduleId) })),
   repairModule: (moduleId) => set((s) => ({ game: repairModuleEngine(s.game, moduleId) })),
+  setTraining: (type, delta) => set((s) => ({ game: setTraining(s.game, type, delta) })),
   runCatchup: (now = Date.now()) =>
     set((s) => {
       const result = runCatchupEngine(s.game, now);

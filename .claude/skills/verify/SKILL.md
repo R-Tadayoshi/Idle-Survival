@@ -413,3 +413,90 @@ stronger regression guard than checking the formula in isolation, since it
 directly encodes the design invariant ("defense affects outcome, never the
 threat itself") rather than just today's specific numbers — keep this
 test if any future incursion-difficulty change touches this file again.
+
+## `npx tsc --noEmit` (bare) is a silent no-op in this repo
+
+The root `tsconfig.json` has `"files": []` with `"references"` to
+`tsconfig.app.json`/`tsconfig.node.json` — it only actually typechecks
+anything in **build mode**. Bare `tsc --noEmit` exits 0 having checked
+nothing at all, which can hide a real compile error for an entire session
+if `npm run build` isn't also run afterward. **Always use `npx tsc -b
+--noEmit`** (or just `npm run build`, which runs `tsc -b && vite build`)
+for a standalone typecheck — never the bare form.
+
+## Population/Army Training system (post-Phase-6)
+
+Villagers assigned to the Training Camp no longer contribute defense
+directly (the old "defender" pattern — `MODULES.trainingCamp` had a
+`defenseValue` and the module's own `assignedWorkers` counted straight
+into `computeDefense`). Instead: `setTraining(state, type, delta)`
+(`engine/military.ts`) opens/grows a `TrainingOrder` (soldier or archer,
+fixed `count`, `completesAt` set once at creation — villagers joining an
+*already-open* order just bump `count`, never reset the timer, so
+queuing more up never delays the ones already in progress); the Training
+Camp's `assignedWorkers` field now means "currently mid-training"
+(a throughput/capacity concept capped by `maxWorkers`), not permanent
+troop count. `advanceTraining` (called from `tick()`, before
+`advanceIncursions` in the same window) graduates any order whose
+`completesAt` has passed into `state.military.soldiers`/`archers` —
+colony-wide standing-army state, decoupled from the Training Camp module
+entirely (troops persist even if the Training Camp is later damaged).
+`computeDefenseAgainst` (`engine/defense.ts`) now reads `state.military`
+directly for troop defense contribution (`MILITARY.SOLDIER_VALUE`/
+`ARCHER_VALUE` × the incursion-type matchup multiplier), not the module
+loop.
+
+**A villager mid-training contributes exactly zero defense until their
+order completes** — this is the deliberate point (prepare before the
+raid, not scramble during one), not a bug; any test injecting a
+`TrainingOrder` should assert defense stays unchanged until
+`completesAt` passes.
+
+**`TrainingCampCard` is a separate UI component from the generic
+`ModuleCard`** (`OutpostScreen.tsx`) — Training Camp doesn't fit the
+worker-slot-stepper-per-module pattern (one stepper row per troop *type*,
+each with its own count/countdown, not one stepper for the whole module).
+The module-grid render loop conditionally picks
+`module.type === 'trainingCamp' ? <TrainingCampCard> : <ModuleCard>`.
+
+**Test the full training pipeline with a doctored save, same pattern as
+offline catch-up:** `readSave()`, set
+`military.training[0].completesAt = Date.now() - 1000` and
+`lastActiveAt` further in the past, `writeSave()`, reload — this drives
+the order through `advanceTraining` via the real offline-catchup path
+without waiting out the real 15-minute `TRAINING_DURATION_SECONDS`. For
+pure-function (`npx tsx`) tests, advance via two `tick()` calls at the
+midpoint and past-completion instead (see `unit-incursions.mts`'s
+"Training pipeline" block) — mid-training must show `military.soldiers
+=== 0`, only after `completesAt` does it graduate.
+
+**Text-content assertions on JSX with an inline double-space
+(`` `${a}  ${b}` ``) will not match — HTML collapses it to a single
+space at render time.** Match the rendered single-space form in
+`innerText()` comparisons, not the literal template string.
+
+### Colonist-cap tuning: raising both the base cap and a cap-bonus module's
+bonus at once can flood the colony past what early production can support
+
+`recalculateCaps()` (see Phase 5 section above) grants free colonists
+*instantly*, up to whatever the new cap is, on **any** build/upgrade
+action — not just a Cottage. Raising `GLOBAL.STARTING_COLONIST_CAP` alone
+(even without touching Cottage's bonus) means the very first building of
+*anything* jumps `colonists.total` straight to the new base cap, since
+`recalculateCaps` runs unconditionally on every build. Combined with a
+much bigger Cottage `colonistCapBonus`, building one early Cottage can
+hand out more idle mouths than a single Lv.2 Farm (capped at 5 workers)
+can feed under the worst-case combined hunger+power throttle — this
+regressed the `unit-starvation-spiral.mts` invariant (never an
+unrecoverable trap) from a comfortable margin down to a genuine multi-tick
+deficit, caught only by re-running that test, not by the E2E suite (which
+doesn't simulate worst-case starving+underpowered+overpopulated
+simultaneously). **When tuning population-scale config numbers, re-run
+`unit-starvation-spiral.mts` specifically** — it's the one test that
+exercises the compounding worst case, and a "the game is too easy, let
+population scale toward the hundreds" balance change is exactly the kind
+of edit that can quietly reintroduce it. Landed at
+`STARTING_COLONIST_CAP: 6` (from 5), Cottage `colonistCapBonus: 4` (from
+2) — the ceiling still climbs toward "dozens/~100" over many
+Cottages/levels (bonus scales `× module.level`), just without an
+oversized single-build instant flood.

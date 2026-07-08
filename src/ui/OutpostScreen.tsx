@@ -5,17 +5,21 @@
  */
 import { useEffect } from 'react';
 import { useGameStore } from '../state/store';
-import { INCURSIONS, MANUAL_TAP_YIELD, MODULES, POWER, SENTINEL, productionAtLevel } from '../config/halcyon-config';
+import { MANUAL_TAP_YIELD, MODULES, POWER, SENTINEL, productionAtLevel } from '../config/halcyon-config';
 import { BUILDABLE_MODULE_TYPES, canAfford, getModuleCost, getRepairCost } from '../engine/build';
 import { computeDefense, computeDefenseAgainst } from '../engine/defense';
 import { peekUpcomingIncursions } from '../engine/incursions';
+import { trainingInProgressCount } from '../engine/military';
 import { computePower } from '../engine/power';
 import { currentProductionMultiplier } from '../engine/tick';
 import { formatDuration } from './format';
 import { HAPTIC, vibrate } from './haptics';
 import { RadarGlyph } from './RadarGlyph';
 import { useAnimatedNumber } from './useAnimatedNumber';
-import type { GameState, IncursionType, ModuleType, ResourceId } from '../engine/types';
+import type { GameState, IncursionType, ModuleType, ResourceId, TroopType } from '../engine/types';
+
+const TROOP_LABEL: Record<TroopType, string> = { soldier: 'Soldiers', archer: 'Archers' };
+const TROOP_ICON: Record<TroopType, string> = { soldier: '🗡️', archer: '🏹' };
 
 const TYPE_LABEL: Record<IncursionType, string> = {
   swarm: 'Swarm',
@@ -42,7 +46,7 @@ const UTILITY_ICON: Partial<Record<ModuleType, string>> = {
   habitat: '🏠',
   trainingCamp: '⚔️',
   sentinelArray: '🗼',
-  turret: '🏹',
+  turret: '🎯',
   perimeterWall: '🧱',
   shieldGen: '💎',
 };
@@ -59,6 +63,7 @@ export function OutpostScreen({ onOpenSettings, onOpenBuildMenu }: OutpostScreen
   const assignWorker = useGameStore((s) => s.assignWorker);
   const upgradeModule = useGameStore((s) => s.upgradeModule);
   const repairModule = useGameStore((s) => s.repairModule);
+  const setTraining = useGameStore((s) => s.setTraining);
   const liveBattleAlert = useGameStore((s) => s.liveBattleAlert);
   const dismissLiveBattleAlert = useGameStore((s) => s.dismissLiveBattleAlert);
   const dismissOnboarding = useGameStore((s) => s.dismissOnboarding);
@@ -175,32 +180,52 @@ export function OutpostScreen({ onOpenSettings, onOpenBuildMenu }: OutpostScreen
           </div>
         )}
         <p className="radar-defense">
-          🛡️ Defense rating: {defense} — assign villagers to a Training Camp, or build a Ballista, Palisade, or Ward
-          Stone to arm your defenses.
+          🛡️ Defense rating: {defense} — train villagers as Soldiers or Archers, or build a Ballista, Palisade, or
+          Ward Stone to arm your defenses.
         </p>
       </section>
 
       <main className="module-grid">
-        {game.modules.map((module) => (
-          <ModuleCard
-            key={module.id}
-            module={module}
-            idleColonists={idleColonists}
-            onExtract={(id) => {
-              vibrate(HAPTIC.tap);
-              extract(id);
-            }}
-            onAssign={(delta) => assignWorker(module.id, delta)}
-            onUpgrade={() => {
-              vibrate(HAPTIC.confirm);
-              upgradeModule(module.id);
-            }}
-            onRepair={() => {
-              vibrate(HAPTIC.confirm);
-              repairModule(module.id);
-            }}
-          />
-        ))}
+        {game.modules.map((module) =>
+          module.type === 'trainingCamp' ? (
+            <TrainingCampCard
+              key={module.id}
+              module={module}
+              idleColonists={idleColonists}
+              onTrain={(type, delta) => {
+                if (delta > 0) vibrate(HAPTIC.confirm);
+                setTraining(type, delta);
+              }}
+              onUpgrade={() => {
+                vibrate(HAPTIC.confirm);
+                upgradeModule(module.id);
+              }}
+              onRepair={() => {
+                vibrate(HAPTIC.confirm);
+                repairModule(module.id);
+              }}
+            />
+          ) : (
+            <ModuleCard
+              key={module.id}
+              module={module}
+              idleColonists={idleColonists}
+              onExtract={(id) => {
+                vibrate(HAPTIC.tap);
+                extract(id);
+              }}
+              onAssign={(delta) => assignWorker(module.id, delta)}
+              onUpgrade={() => {
+                vibrate(HAPTIC.confirm);
+                upgradeModule(module.id);
+              }}
+              onRepair={() => {
+                vibrate(HAPTIC.confirm);
+                repairModule(module.id);
+              }}
+            />
+          ),
+        )}
         {hasMoreToBuild && (
           <button className="module-tile build-tile" onClick={onOpenBuildMenu}>
             <span className="module-tile-icon">＋</span>
@@ -249,7 +274,9 @@ function ModuleCard({ module, idleColonists, onExtract, onAssign, onUpgrade, onR
   const game = useGameStore((s) => s.game);
   const def = MODULES[module.type];
   const hasProduction = 'produces' in def && 'ratePerWorker' in def;
-  const hasWorkers = 'maxWorkers' in def;
+  // Training Camp (the only other maxWorkers module) renders via
+  // TrainingCampCard instead — every module reaching here with maxWorkers
+  // is a production module.
   const maxWorkers = 'maxWorkers' in def ? def.maxWorkers : 0;
   const ratePerWorker = hasProduction ? productionAtLevel(def.ratePerWorker, module.level) : 0;
   // Actual rate, not the nominal one — factors in the current hunger/power
@@ -279,12 +306,6 @@ function ModuleCard({ module, idleColonists, onExtract, onAssign, onUpgrade, onR
     effect = `+${def.colonistCapBonus * module.level} villager cap`;
   } else if ('energyOutput' in def) {
     effect = `+${def.energyOutput * module.level} power supply`;
-  } else if (hasWorkers) {
-    // defense module (e.g. Training Camp): assigned villagers become defenders
-    effect =
-      module.assignedWorkers > 0
-        ? `+${Math.round(module.assignedWorkers * INCURSIONS.DEFENDER_VALUE_PER_COLONIST * defensePowerFactor)} defense`
-        : 'Idle — assign a villager';
   } else if ('defenseValue' in def) {
     // passive defense module (Ballista/Palisade/Ward Stone)
     effect =
@@ -312,9 +333,9 @@ function ModuleCard({ module, idleColonists, onExtract, onAssign, onUpgrade, onR
         </div>
       </div>
 
-      {hasWorkers && !module.damaged && (
+      {hasProduction && !module.damaged && (
         <div className="stepper-row">
-          <span className="module-tile-sub">{hasProduction ? 'Villagers' : 'Defenders'}</span>
+          <span className="module-tile-sub">Villagers</span>
           <div className="stepper">
             <button
               className="stepper-btn"
@@ -343,6 +364,107 @@ function ModuleCard({ module, idleColonists, onExtract, onAssign, onUpgrade, onR
         <button className="module-card-tap" onClick={() => onExtract(resourceId)} disabled={atCap}>
           {atCap ? 'Storage full' : `Tap to gather +${tapYield}`}
         </button>
+      )}
+
+      {module.damaged ? (
+        <button className="module-card-tap" onClick={onRepair} disabled={!canRepair}>
+          Repair —{' '}
+          {(Object.entries(repairCost) as Array<[ResourceId, number]>)
+            .map(([id, amount]) => `${RESOURCE_ICON[id] ?? ''}${amount}`)
+            .join(' ')}
+        </button>
+      ) : (
+        <button className="module-card-tap" onClick={onUpgrade} disabled={!canUpgrade}>
+          Upgrade to Lv.{module.level + 1} —{' '}
+          {(Object.entries(upgradeCost) as Array<[ResourceId, number]>)
+            .map(([id, amount]) => `${RESOURCE_ICON[id] ?? ''}${amount}`)
+            .join(' ')}
+        </button>
+      )}
+    </div>
+  );
+}
+
+interface TrainingCampCardProps {
+  module: GameState['modules'][number];
+  idleColonists: number;
+  onTrain: (type: TroopType, delta: number) => void;
+  onUpgrade: () => void;
+  onRepair: () => void;
+}
+
+/** Training Camp doesn't fit the generic worker-slot card: assigning a
+ *  villager here starts a timed training order (see engine/military.ts),
+ *  not an instant defense contribution — they're worthless until the
+ *  order completes, by design ("prepare before the raid, not during it").
+ *  Once trained, they become permanent standing troops independent of
+ *  this module's own slots (those just cap concurrent training). */
+function TrainingCampCard({ module, idleColonists, onTrain, onUpgrade, onRepair }: TrainingCampCardProps) {
+  const game = useGameStore((s) => s.game);
+  const def = MODULES.trainingCamp;
+  const maxWorkers = def.maxWorkers;
+  const inProgress = trainingInProgressCount(game);
+  const slotsLeft = maxWorkers - inProgress;
+
+  const upgradeCost = getModuleCost('trainingCamp', module.level + 1);
+  const canUpgrade = canAfford(game, upgradeCost);
+  const repairCost = getRepairCost('trainingCamp');
+  const canRepair = canAfford(game, repairCost);
+
+  const orderFor = (type: TroopType) => game.military.training.find((o) => o.type === type);
+
+  return (
+    <div className={`module-tile module-card panel${module.damaged ? ' module-card-damaged' : ''}`}>
+      <div className="module-card-head">
+        <span className="module-tile-icon">{UTILITY_ICON.trainingCamp}</span>
+        <div className="module-card-title">
+          <span>
+            {def.name} <span className="module-card-level">Lv.{module.level}</span>
+          </span>
+          <span className="module-tile-sub">
+            {module.damaged
+              ? '⚠ Damaged — repair to restore'
+              : `${TROOP_ICON.soldier} ${game.military.soldiers} ${TROOP_LABEL.soldier}  ${TROOP_ICON.archer} ${game.military.archers} ${TROOP_LABEL.archer}`}
+          </span>
+        </div>
+      </div>
+
+      {!module.damaged && (
+        <>
+          <p className="module-tile-sub">
+            Training slots: {inProgress}/{maxWorkers}
+          </p>
+          {(['soldier', 'archer'] as const).map((type) => {
+            const order = orderFor(type);
+            return (
+              <div className="stepper-row" key={type}>
+                <span className="module-tile-sub">
+                  {TROOP_ICON[type]} Train {TROOP_LABEL[type]}
+                  {order ? ` — ready in ${formatDuration((order.completesAt - Date.now()) / 1000)}` : ''}
+                </span>
+                <div className="stepper">
+                  <button
+                    className="stepper-btn"
+                    onClick={() => onTrain(type, -1)}
+                    disabled={!order || order.count <= 0}
+                    aria-label={`Cancel a villager training as a ${type}`}
+                  >
+                    −
+                  </button>
+                  <span className="stepper-value">{order?.count ?? 0}</span>
+                  <button
+                    className="stepper-btn"
+                    onClick={() => onTrain(type, 1)}
+                    disabled={idleColonists <= 0 || slotsLeft <= 0}
+                    aria-label={`Assign a villager to train as a ${type}`}
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </>
       )}
 
       {module.damaged ? (

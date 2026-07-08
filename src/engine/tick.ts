@@ -13,6 +13,7 @@
 import { GLOBAL, MODULES, POWER, productionAtLevel } from '../config/halcyon-config';
 import { refreshCapNumbers } from './caps';
 import { advanceIncursions } from './incursions';
+import { advanceTraining } from './military';
 import { computePower } from './power';
 import type { GameState, Incursion, ResourceId } from './types';
 
@@ -82,10 +83,14 @@ export function tick(state: GameState, dtSeconds: number): TickResult {
 
   const windowEnd = state.lastActiveAt + dtSeconds * 1000;
   const dayCount = Math.max(0, Math.floor((windowEnd - state.createdAt) / (GLOBAL.DAY_LENGTH_SECONDS * 1000)));
-  const advanced = advanceIncursions(
+  // Training completes before incursions resolve in this same window — if a
+  // batch finishes training right as a raid arrives, they've already
+  // graduated in time to help defend it.
+  const trained = advanceTraining(
     { ...state, resources, lastActiveAt: windowEnd, survival: { ...state.survival, dayCount } },
     windowEnd,
   );
+  const advanced = advanceIncursions(trained, windowEnd);
 
   return { state: refreshCapNumbers(advanced.state), resolvedIncursions: advanced.resolved };
 }

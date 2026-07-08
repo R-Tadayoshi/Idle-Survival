@@ -18,7 +18,7 @@ export const GLOBAL = {
   TICK_SECONDS: 1,                   // live loop granularity
   DAY_LENGTH_SECONDS: 20 * 60,       // one day/night cycle = 20 min; night = 2nd half
   STARTING_COLONISTS: 3,
-  STARTING_COLONIST_CAP: 5,
+  STARTING_COLONIST_CAP: 6,
   RATION_UPKEEP_PER_COLONIST: 0.1,   // rations/sec drained by EACH colonist (idle baseline)
   WORKING_RATION_UPKEEP_MULT: 1.5,   // colonists assigned to a module drain rations at this multiple of the idle baseline
   HUNGRY_PRODUCTION_MULT: 0.35,      // production multiplier when rations hit 0
@@ -63,11 +63,11 @@ export const MODULES = {
 
   reactor:      { name: 'Windmill',         buildCost: { scrap: 80, ore: 40 },           energyOutput: 15,    powerDemand: 0 }, // +15 supply per level
   storageDepot: { name: 'Storehouse',       buildCost: { scrap: 60, ore: 30 },           capBonusAll: 250,    powerDemand: 1 }, // +250 to every cap per level
-  habitat:      { name: 'Cottage',          buildCost: { scrap: 70, ore: 30 },           colonistCapBonus: 2, powerDemand: 2 }, // +2 colonist cap per level
+  habitat:      { name: 'Cottage',          buildCost: { scrap: 70, ore: 30 },           colonistCapBonus: 4, powerDemand: 2 }, // +4 colonist cap per level — population is meant to scale toward the dozens/~100 range over many Cottages/levels, not flood in on the first build
   fabricator:   { name: 'Workshop',         buildCost: { scrap: 200, ore: 120 },         powerDemand: 6 },                       // crafts iron/tools
 
   // Defense & intel
-  trainingCamp:  { name: 'Training Camp',   buildCost: { scrap: 90, ore: 40 },           powerDemand: 3, maxWorkers: 4 },       // assign villagers as defenders (INCURSIONS.DEFENDER_VALUE_PER_COLONIST each)
+  trainingCamp:  { name: 'Training Camp',   buildCost: { scrap: 90, ore: 40 },           powerDemand: 3, maxWorkers: 20 },      // throughput cap: how many villagers can be training at once (see MILITARY config)
   sentinelArray: { name: 'Watchtower',      buildCost: { scrap: 100, ore: 50 },          powerDemand: 4 },
   turret:        { name: 'Ballista',        buildCost: { scrap: 80, ore: 40 },           defenseValue: 15, powerDemand: 3 },
   perimeterWall: { name: 'Palisade',        buildCost: { scrap: 50, ore: 60 },           defenseValue: 8,  powerDemand: 0 }, // passive, never unpowered
@@ -123,17 +123,29 @@ export const INCURSIONS = {
   // shortfallRatio = clamp((strength - defense) / strength, 0, 1)
 
   // Type ↔ defense effectiveness multipliers (defenseValue × factor)
-  // Rows = incursion type, cols = defense source.
+  // Rows = incursion type, cols = defense source. soldier/archer are
+  // trained troops (see MILITARY below), not raw Training Camp assignment.
   MATCHUPS: {
-    swarm:   { turret: 1.3, wall: 0.8, shield: 1.0, defender: 1.0 },
-    armored: { turret: 1.0, wall: 0.7, shield: 1.3, defender: 1.0 },
-    raiders: { turret: 1.0, wall: 1.3, shield: 1.0, defender: 1.1 },
+    swarm:   { turret: 1.3, wall: 0.8, shield: 1.0, soldier: 0.9, archer: 1.3 },
+    armored: { turret: 1.0, wall: 0.7, shield: 1.3, soldier: 1.3, archer: 0.7 },
+    raiders: { turret: 1.0, wall: 1.3, shield: 1.0, soldier: 1.0, archer: 1.1 },
   },
 
   // Rough type distribution as the game progresses (seeded pick).
   TYPE_WEIGHTS: { swarm: 0.5, armored: 0.3, raiders: 0.2 },
+} as const;
 
-  DEFENDER_VALUE_PER_COLONIST: 6, // each colonist assigned to defense
+// ── Military: training villagers into standing troops ────────────────────────
+// Assigning a villager to the Training Camp starts training them as a
+// specific troop type; they contribute NOTHING to defense until training
+// completes (the whole point — you have to prepare before a raid hits, not
+// during it). Once trained, they're a permanent standing troop (no longer
+// tied to the Training Camp's own worker slots — those just gate how many
+// can be training AT ONCE, not a cap on total army size).
+export const MILITARY = {
+  TRAINING_DURATION_SECONDS: 15 * 60, // 15 min to complete a training order
+  SOLDIER_VALUE: 6,  // defense contributed per trained Soldier (before matchup)
+  ARCHER_VALUE: 6,   // defense contributed per trained Archer (before matchup)
 } as const;
 
 // ── Prestige (implement last) ────────────────────────────────────────────────
