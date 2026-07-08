@@ -34,9 +34,19 @@ export function App() {
       </div>
     );
   }
-  // Terminal: a fallen colony blocks everything else — no offline summary,
-  // no settings/build sheets or tab bar left navigable, just found anew.
-  if (gameOver) return <GameOverScreen />;
+  // Terminal: no offline summary, no settings/build sheets — but the
+  // Chronicle tab stays reachable so a player can actually see what led to
+  // the collapse (raids, world events) instead of just "it happened,
+  // no idea why." Settings/build menu still make no sense post-collapse,
+  // so those icons/sheets are simply absent from GameOverScreen.
+  if (gameOver) {
+    return (
+      <div className="app-shell">
+        <div className="app-content">{activeTab === 'chronicle' ? <ChronicleScreen /> : <GameOverScreen />}</div>
+        <TabBar active={activeTab} onSelect={setActiveTab} />
+      </div>
+    );
+  }
 
   return (
     <div className="app-shell">

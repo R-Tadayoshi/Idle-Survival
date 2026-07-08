@@ -857,3 +857,44 @@ nothing to close, you just switch tabs). Assert the *other* screen's root
 class has count 0 after switching (`.outpost` count 0 while on Chronicle,
 `.chronicle-screen` count 0 while back on Outpost) to catch a tab switch
 that renders both at once instead of swapping.
+
+## Game Over must stay diagnosable — Chronicle reachable after defeat
+
+User report: "I got a game over out of the blue... enough food, raid in
+3h, all my villagers present... probably a bug." Turned out not to be a
+code bug — `checkGameOver`'s `population` reason fires whenever
+`colonists.total` hits 0 by *any* combination of causes (defection during
+a slow morale recovery, or the new per-raid `colonistsLost` casualties
+introduced this session), and a couple of raids that each cost 1-2
+villagers (not full wipes) can silently zero out a small population over
+real playtime with no single dramatic moment to point to. **The actual
+defect was diagnosability, not game logic**: `GameOverScreen` used to be
+a `position: fixed; inset: 0;` overlay that blocked literally everything,
+including the just-added Chronicle tab bar — so once a colony fell, there
+was no way to go check *what* actually killed it. Fixed by making
+`.game-over` a normal flex-filling element (`flex: 1; min-height: 0;`,
+same pattern as `.outpost`/`.chronicle-screen`) instead of a fixed
+overlay, and `App.tsx`'s `gameOver` branch now still renders `<TabBar>`
+— the "Outpost" tab shows `GameOverScreen`, but "Chronicle" stays fully
+functional, showing the exact raid/event history (with per-entry
+casualty counts) that led to the collapse. `GameOverScreen` also gained a
+one-line hint pointing at the tab. Settings/BuildMenu are still absent
+post-collapse (nothing to configure), only Chronicle needed to survive.
+
+**When a player reports an unexplained defeat, the first ask is "what
+exact reason/message did the Game Over screen show" and "check the
+Chronicle tab"** — the three `DefeatReason`s each have distinct
+messages, and Chronicle's per-entry `colonistsLost`/`damagedModuleTypes`/
+`resourceLosses` fields are the ground truth for *why*, not just *that*.
+Don't guess at a root cause (e.g. "you were probably underpowered") before
+asking for this — the reason text alone (`population` vs `morale` vs
+`starvation`) rules out entire categories of explanation immediately.
+
+**Test pattern**: doctor `gameOver` directly (as with all terminal-state
+tests) but also seed `save.incursions`/`save.worldEvents` with entries
+that have `colonistsLost` set, then assert `.tab-bar` has count 1 (not
+hidden), click Chronicle, and assert the entry's text mentions the
+casualty count — this is the regression guard for "the overlay ate the
+tab bar again," which a plain "does Game Over render" check can't catch
+since the overlay bug never affected the Game Over screen's own content,
+only what else was reachable around it.

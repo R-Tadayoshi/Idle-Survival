@@ -35,6 +35,7 @@ export function GameOverScreen() {
       <p className="game-over-stats">
         Survived {formatDuration(survivedSeconds)} · reached day {game.survival.dayCount}
       </p>
+      <p className="game-over-hint">Check the Chronicle tab below to see exactly what happened.</p>
       <button className="game-over-button" onClick={() => resetGame()}>
         Found a New Colony
       </button>
