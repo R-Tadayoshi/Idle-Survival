@@ -81,11 +81,19 @@ export const RECIPES = {
 } as const;
 
 // ── Sentinel detection ───────────────────────────────────────────────────────
-// How far ahead the Sentinel reveals incursions, by level (hours).
+// How far ahead the Watchtower reveals incursions, by level (hours). Levels
+// beyond the array's length reuse the last (highest) entry — clamp the
+// index, don't let it fall through to `undefined ?? 0` and go blind.
 export const SENTINEL = {
   HORIZON_HOURS_BY_LEVEL: [0, 6, 12, 24, 36, 48], // index = level; L0 = none built
-  // At >= this level, reveal exact composition/weak points, not just strength.
+  // Intel is tiered by Watchtower level, not all-or-nothing:
+  //  L1: a raid is coming, only a rough bucketed ETA (no type/strength yet).
+  //  L2 (DETAILED_INTEL_LEVEL): exact ETA, type, strength, and how your
+  //      current defense stacks up against it.
+  //  L3 (COMPOSITION_INTEL_LEVEL): + which defenses this warband is weakest
+  //      and strongest against (derived from INCURSIONS.MATCHUPS).
   DETAILED_INTEL_LEVEL: 2,
+  COMPOSITION_INTEL_LEVEL: 3,
 } as const;
 
 // ── Incursions (scheduled, deterministic from seed) ──────────────────────────

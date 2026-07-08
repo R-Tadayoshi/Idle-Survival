@@ -5,7 +5,7 @@
  */
 import { useEffect } from 'react';
 import { useGameStore } from '../state/store';
-import { MANUAL_TAP_YIELD, MODULES, POWER, SENTINEL, productionAtLevel } from '../config/halcyon-config';
+import { INCURSIONS, MANUAL_TAP_YIELD, MODULES, POWER, SENTINEL, productionAtLevel } from '../config/halcyon-config';
 import { BUILDABLE_MODULE_TYPES, canAfford, getModuleCost, getRepairCost } from '../engine/build';
 import { computeDefense, computeDefenseAgainst } from '../engine/defense';
 import { peekUpcomingIncursions } from '../engine/incursions';
@@ -26,6 +26,34 @@ const TYPE_LABEL: Record<IncursionType, string> = {
   armored: 'Armored',
   raiders: 'Raiders',
 };
+
+type MatchupKey = keyof (typeof INCURSIONS.MATCHUPS)['swarm'];
+const MATCHUP_LABEL: Record<MatchupKey, string> = {
+  turret: 'Ballistae',
+  wall: 'Palisades',
+  shield: 'Ward Stones',
+  soldier: 'Soldiers',
+  archer: 'Archers',
+};
+
+/** Composition intel (Watchtower L3+): which defenses this warband is
+ *  weakest/strongest against, read straight off INCURSIONS.MATCHUPS. */
+function describeMatchup(type: IncursionType): string {
+  const matchup = INCURSIONS.MATCHUPS[type];
+  const entries = Object.entries(matchup) as Array<[MatchupKey, number]>;
+  const weakestTo = entries.reduce((a, b) => (b[1] > a[1] ? b : a));
+  const strongestTo = entries.reduce((a, b) => (b[1] < a[1] ? b : a));
+  return `Scouts report a ${TYPE_LABEL[type].toLowerCase()} warband — most vulnerable to ${MATCHUP_LABEL[weakestTo[0]]}, least to ${MATCHUP_LABEL[strongestTo[0]]}.`;
+}
+
+/** Rough intel (Watchtower L1): a bucketed ETA only, never exact minutes —
+ *  ceil'd up to the next 3h so it reads as "roughly ~Xh away", not a precise
+ *  countdown the player hasn't earned yet. */
+function roughEtaLabel(arrivalAt: number): string {
+  const hoursAway = (arrivalAt - Date.now()) / 3_600_000;
+  const bucket = Math.max(3, Math.ceil(hoursAway / 3) * 3);
+  return `~${bucket}h`;
+}
 
 const HUD_RESOURCES: Array<{ id: ResourceId; icon: string; label: string }> = [
   { id: 'scrap', icon: '🪵', label: 'Wood' },
@@ -82,11 +110,16 @@ export function OutpostScreen({ onOpenSettings, onOpenBuildMenu }: OutpostScreen
   const hasMoreToBuild = BUILDABLE_MODULE_TYPES.some((type) => !game.modules.some((m) => m.type === type));
 
   const watchtower = game.modules.find((m) => m.type === 'sentinelArray' && !m.damaged);
-  const horizonHours = watchtower ? (SENTINEL.HORIZON_HOURS_BY_LEVEL[watchtower.level] ?? 0) : 0;
+  const watchtowerLevel = watchtower?.level ?? 0;
+  const horizonHours = watchtower
+    ? (SENTINEL.HORIZON_HOURS_BY_LEVEL[Math.min(watchtower.level, SENTINEL.HORIZON_HOURS_BY_LEVEL.length - 1)] ?? 0)
+    : 0;
   const nextIncursion = watchtower
     ? peekUpcomingIncursions(game, Date.now() + horizonHours * 3600 * 1000, 1)[0]
     : undefined;
-  const detailedIntel = (watchtower?.level ?? 0) >= SENTINEL.DETAILED_INTEL_LEVEL;
+  const roughIntelOnly = watchtowerLevel >= 1 && watchtowerLevel < SENTINEL.DETAILED_INTEL_LEVEL;
+  const detailedIntel = watchtowerLevel >= SENTINEL.DETAILED_INTEL_LEVEL;
+  const compositionIntel = watchtowerLevel >= SENTINEL.COMPOSITION_INTEL_LEVEL;
   const defense = nextIncursion ? computeDefenseAgainst(game, nextIncursion.type) : computeDefense(game);
 
   return (
@@ -157,10 +190,21 @@ export function OutpostScreen({ onOpenSettings, onOpenBuildMenu }: OutpostScreen
               </div>
               {nextIncursion ? (
                 <p className="radar-hint">
-                  {TYPE_LABEL[nextIncursion.type]} raid inbound — ETA{' '}
-                  {formatDuration((nextIncursion.arrivalAt - Date.now()) / 1000)}, strength {nextIncursion.strength}.
-                  {detailedIntel &&
-                    ` Your defense: ${defense} vs incoming ${nextIncursion.strength}${defense >= nextIncursion.strength ? ' — prepared.' : ' — reinforce!'}`}
+                  {roughIntelOnly ? (
+                    <>
+                      Scouts spot movement — a raid is roughly {roughEtaLabel(nextIncursion.arrivalAt)} away. Upgrade
+                      the Watchtower for a clearer picture.
+                    </>
+                  ) : (
+                    <>
+                      {TYPE_LABEL[nextIncursion.type]} raid inbound — ETA{' '}
+                      {formatDuration((nextIncursion.arrivalAt - Date.now()) / 1000)}, strength{' '}
+                      {nextIncursion.strength}.
+                      {compositionIntel && ` ${describeMatchup(nextIncursion.type)}`}
+                      {detailedIntel &&
+                        ` Your defense: ${defense} vs incoming ${nextIncursion.strength}${defense >= nextIncursion.strength ? ' — prepared.' : ' — reinforce!'}`}
+                    </>
+                  )}
                 </p>
               ) : (
                 <p className="radar-hint">No incursions detected within scan range ({horizonHours}h).</p>

@@ -500,3 +500,46 @@ of edit that can quietly reintroduce it. Landed at
 2) — the ceiling still climbs toward "dozens/~100" over many
 Cottages/levels (bonus scales `× module.level`), just without an
 oversized single-build instant flood.
+
+## Watchtower tiered intel (post-Population/Army-Training)
+
+User-reported: "the watchtower levels have no difference." Previously
+every Watchtower level showed the exact same radar-hint text (type, ETA,
+strength) — only the `detailedIntel` defense-comparison sentence was
+gated to L2+, and even that gate was easy to miss since the base line
+looked complete on its own. Restructured into three genuinely distinct
+tiers in `SENTINEL` (config) + `OutpostScreen.tsx`:
+
+- **L1** (`roughIntelOnly`): a bucketed, ceil'd-to-next-3h ETA only —
+  `roughEtaLabel()` — no type, no strength, no exact minutes. Matches the
+  user's own phrasing ("the closest enemy is +/- 3h away").
+- **L2** (`SENTINEL.DETAILED_INTEL_LEVEL`): exact ETA/type/strength plus
+  the existing defense-vs-incoming comparison sentence.
+- **L3** (`SENTINEL.COMPOSITION_INTEL_LEVEL`, new): + `describeMatchup()`
+  — reads `INCURSIONS.MATCHUPS[type]` directly and names the
+  strongest/weakest counters ("most vulnerable to Ballistae, least to
+  Palisades"), so upgrading the Watchtower has a legible payoff beyond
+  just horizon hours.
+
+**Found and fixed a latent bug while touching this code:**
+`SENTINEL.HORIZON_HOURS_BY_LEVEL[watchtower.level] ?? 0` had no clamp —
+the array only has entries for levels 0–5, so a Watchtower upgraded past
+L5 would index out of bounds, get `undefined`, and silently go blind
+(`horizonHours` falls back to 0) despite being higher-level, not lower.
+There's no level cap on module upgrades (`upgradeModule` in `build.ts`
+has none), so this was reachable in real play. Fixed with
+`Math.min(watchtower.level, HORIZON_HOURS_BY_LEVEL.length - 1)` — beyond
+L5 the horizon just holds at the L5 value instead of collapsing to
+nothing.
+
+**Test each tier with a doctored save, same pattern as everywhere else
+in this file:** build a Watchtower via the UI (starts at L1, exercising
+the real build path once), then `readSave()`/mutate
+`modules.find(m => m.type === 'sentinelArray').level = N`/`writeSave()`/
+reload for L2 and L3 — real time-based leveling (repeated real upgrades)
+isn't worth the resource cost to simulate when a direct level mutation
+proves the same UI branch. Assert both what a tier *shows* and what it
+does *not yet* show (e.g. L1 must not match `/raid inbound — ETA/`, L2
+must not match `/most vulnerable to/`) — a positive-only assertion at
+each tier can't catch a tier boundary that leaked forward (e.g. L1
+accidentally showing L2 detail).
