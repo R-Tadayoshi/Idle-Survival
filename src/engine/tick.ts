@@ -16,7 +16,8 @@ import { advanceIncursions } from './incursions';
 import { advanceTraining } from './military';
 import { advanceMorale, checkGameOver } from './morale';
 import { computePower } from './power';
-import type { GameState, Incursion, ResourceId } from './types';
+import { advanceWorldEvents } from './worldEvents';
+import type { GameState, Incursion, ResourceId, WorldEvent } from './types';
 
 /** Snapshot of the production multiplier for the *current* state — the same
  *  hunger/power factors tick() applies internally, but evaluated against
@@ -43,10 +44,13 @@ export interface TickResult {
    *  the time — the schedule averages hours between arrivals). Distinct
    *  from state.incursions, which is the capped persisted history. */
   resolvedIncursions: Incursion[];
+  /** world events resolved during this specific call, in order — same
+   *  "distinct from the persisted/capped log" relationship as above. */
+  resolvedWorldEvents: WorldEvent[];
 }
 
 export function tick(state: GameState, dtSeconds: number): TickResult {
-  if (dtSeconds <= 0 || state.gameOver) return { state, resolvedIncursions: [] };
+  if (dtSeconds <= 0 || state.gameOver) return { state, resolvedIncursions: [], resolvedWorldEvents: [] };
 
   const rations = state.resources.rations;
   const working = state.colonists.assigned;
@@ -99,9 +103,18 @@ export function tick(state: GameState, dtSeconds: number): TickResult {
   // graduated in time to help defend it.
   const trained = advanceTraining(withMorale, windowEnd);
   const advanced = advanceIncursions(trained, windowEnd);
-  // Checked last: a breach/repel this step can itself be what tips morale
-  // to 0 or (via defection) population to 0.
-  const final = checkGameOver(advanced.state);
+  // World events have no fairness gate (see worldEvents.ts) and can land in
+  // the same window as an incursion — order doesn't matter for correctness
+  // here since neither reads the other's outcome, only resolvedIncursions
+  // vs resolvedWorldEvents needs to stay distinct for the UI.
+  const withEvents = advanceWorldEvents(advanced.state, windowEnd);
+  // Checked last: a breach/plague/repel this step can itself be what tips
+  // morale to 0 or (via defection/plague) population to 0.
+  const final = checkGameOver(withEvents.state);
 
-  return { state: refreshCapNumbers(final), resolvedIncursions: advanced.resolved };
+  return {
+    state: refreshCapNumbers(final),
+    resolvedIncursions: advanced.resolved,
+    resolvedWorldEvents: withEvents.resolved,
+  };
 }

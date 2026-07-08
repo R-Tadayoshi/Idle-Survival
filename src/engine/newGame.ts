@@ -1,5 +1,6 @@
 import { GLOBAL, RESOURCES } from '../config/halcyon-config';
 import { firstIncursionArrival } from './incursions';
+import { firstWorldEventArrival } from './worldEvents';
 import { SAVE_VERSION } from '../save/version';
 import type { GameState, Module, ResourceId, ResourceState } from './types';
 
@@ -34,6 +35,9 @@ export function createNewGame(now = Date.now()): GameState {
     incursions: [],
     nextIncursionIndex: 0,
     nextIncursionArrivalAt: firstIncursionArrival(now),
+    worldEvents: [],
+    nextWorldEventIndex: 0,
+    nextWorldEventArrivalAt: firstWorldEventArrival(now),
     military: { soldiers: 0, archers: 0, training: [] },
     survival: { dayCount: 0, morale: 100, starvingSeconds: 0, defectionProgress: 0 },
     gameOver: null,

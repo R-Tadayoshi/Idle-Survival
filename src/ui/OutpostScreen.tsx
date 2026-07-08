@@ -25,7 +25,7 @@ import { formatDuration } from './format';
 import { HAPTIC, vibrate } from './haptics';
 import { RadarGlyph } from './RadarGlyph';
 import { useAnimatedNumber } from './useAnimatedNumber';
-import type { GameState, IncursionType, ModuleType, ResourceId, TroopType } from '../engine/types';
+import type { GameState, IncursionType, ModuleType, ResourceId, TroopType, WorldEvent, WorldEventType } from '../engine/types';
 
 const TROOP_LABEL: Record<TroopType, string> = { soldier: 'Soldiers', archer: 'Archers' };
 const TROOP_ICON: Record<TroopType, string> = { soldier: '🗡️', archer: '🏹' };
@@ -35,6 +35,29 @@ const TYPE_LABEL: Record<IncursionType, string> = {
   armored: 'Armored',
   raiders: 'Raiders',
 };
+
+const WORLD_EVENT_ICON: Record<WorldEventType, string> = {
+  blight: '🥀',
+  fire: '🔥',
+  plague: '🤒',
+  theft: '🗡️',
+  caravan: '🐎',
+};
+
+function worldEventAlertText(event: WorldEvent): string {
+  switch (event.type) {
+    case 'blight':
+      return 'Blight ruined part of the harvest.';
+    case 'fire':
+      return `A fire broke out${event.damagedModuleType ? `, damaging the ${MODULES[event.damagedModuleType].name}` : ''}.`;
+    case 'plague':
+      return `Illness swept through the village.${event.colonistLost ? ' A villager was lost.' : ''}`;
+    case 'theft':
+      return 'Bandits pilfered supplies in the night.';
+    case 'caravan':
+      return 'A trading caravan passed through and traded generously.';
+  }
+}
 
 type MatchupKey = keyof (typeof INCURSIONS.MATCHUPS)['swarm'];
 const MATCHUP_LABEL: Record<MatchupKey, string> = {
@@ -91,9 +114,10 @@ const UTILITY_ICON: Partial<Record<ModuleType, string>> = {
 interface OutpostScreenProps {
   onOpenSettings: () => void;
   onOpenBuildMenu: () => void;
+  onOpenChronicle: () => void;
 }
 
-export function OutpostScreen({ onOpenSettings, onOpenBuildMenu }: OutpostScreenProps) {
+export function OutpostScreen({ onOpenSettings, onOpenBuildMenu, onOpenChronicle }: OutpostScreenProps) {
   const game = useGameStore((s) => s.game);
   const saveStatus = useGameStore((s) => s.saveStatus);
   const extract = useGameStore((s) => s.extract);
@@ -103,6 +127,8 @@ export function OutpostScreen({ onOpenSettings, onOpenBuildMenu }: OutpostScreen
   const setTraining = useGameStore((s) => s.setTraining);
   const liveBattleAlert = useGameStore((s) => s.liveBattleAlert);
   const dismissLiveBattleAlert = useGameStore((s) => s.dismissLiveBattleAlert);
+  const liveWorldEventAlert = useGameStore((s) => s.liveWorldEventAlert);
+  const dismissLiveWorldEventAlert = useGameStore((s) => s.dismissLiveWorldEventAlert);
   const dismissOnboarding = useGameStore((s) => s.dismissOnboarding);
 
   // Fires once per newly-resolved live incursion, not on every re-render —
@@ -112,6 +138,11 @@ export function OutpostScreen({ onOpenSettings, onOpenBuildMenu }: OutpostScreen
     if (!liveBattleAlert) return;
     vibrate(liveBattleAlert.outcome === 'breached' ? HAPTIC.raidBreached : HAPTIC.raidRepelled);
   }, [liveBattleAlert]);
+
+  useEffect(() => {
+    if (!liveWorldEventAlert) return;
+    vibrate(liveWorldEventAlert.type === 'caravan' ? HAPTIC.raidRepelled : HAPTIC.raidBreached);
+  }, [liveWorldEventAlert]);
 
   const starving = game.resources.rations.amount <= 0;
   const idleColonists = game.colonists.total - game.colonists.assigned;
@@ -153,6 +184,9 @@ export function OutpostScreen({ onOpenSettings, onOpenBuildMenu }: OutpostScreen
           <span className={`save-pill save-${saveStatus}`}>
             {saveStatus === 'saved' ? '● saved' : saveStatus === 'dirty' ? '○ saving…' : '… loading'}
           </span>
+          <button className="icon-button" onClick={onOpenChronicle} aria-label="Open chronicle">
+            📜
+          </button>
           <button className="icon-button" onClick={onOpenSettings} aria-label="Open settings">
             ⚙️
           </button>
@@ -187,6 +221,15 @@ export function OutpostScreen({ onOpenSettings, onOpenBuildMenu }: OutpostScreen
           {liveBattleAlert.outcome === 'repelled'
             ? `⚔ ${TYPE_LABEL[liveBattleAlert.type]} raid repelled! Defense held at ${liveBattleAlert.defenseValue}. (tap to dismiss)`
             : `⚠ ${TYPE_LABEL[liveBattleAlert.type]} raid breached our defenses! ${liveBattleAlert.damagedModuleType ? `${MODULES[liveBattleAlert.damagedModuleType].name} damaged. ` : ''}(tap to dismiss)`}
+        </p>
+      )}
+
+      {liveWorldEventAlert && (
+        <p
+          className={`battle-alert ${liveWorldEventAlert.type === 'caravan' ? 'battle-alert-repelled' : 'battle-alert-breached'}`}
+          onClick={dismissLiveWorldEventAlert}
+        >
+          {WORLD_EVENT_ICON[liveWorldEventAlert.type]} {worldEventAlertText(liveWorldEventAlert)} (tap to dismiss)
         </p>
       )}
 

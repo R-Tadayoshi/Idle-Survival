@@ -679,3 +679,61 @@ checking `.radar-hint` picks up the `(+N more scouted)` suffix -- and
 that it's absent with 0 scouts assigned, matching every pre-existing
 Phase 5 Watchtower assertion (none of which assign scouts, so none
 needed updating).
+
+## World events (uncontrollable) + the Chronicle screen
+
+Last item off the original wishlist: "events you cannot control... most
+of the time bad." `engine/worldEvents.ts` is a second deterministic
+(seed, index) schedule, same shape as incursions.ts, with one deliberate
+difference — **no fairness gate**. Incursions wait for a Sentinel Array
+so a new player is never blindsided by combat with no way to see it
+coming; world events have no counter-play at all (that's the point), so
+they resolve on schedule regardless of what's built, from the very first
+one twelve minutes into a fresh game. Extracted the shared PRNG helpers
+(`mulberry32`/`seededRng`/`pickWeighted`, previously private to
+incursions.ts) into `engine/rng.ts` so both schedules draw from the same
+tested implementation rather than a second copy-pasted one.
+
+Five event types (`blight`/`fire`/`plague`/`theft` bad, `caravan` a rare
+windfall), each an instant one-shot effect (resource loss/gain, module
+damage, morale hit, a chance of losing a villager via the same
+`removeOneColonist` defection uses) — no ongoing timed multipliers, so
+resolution is a plain state mutation shaped just like an incursion
+breach, not a whole duration-tracking subsystem.
+
+**Testing a specific event type needs a seed search, not a fixed
+seed.** Unlike incursion tests (which usually just need *a* deterministic
+outcome, and pick a seed that happens to breach/repel), verifying each of
+the 5 world-event types' distinct effects means finding a seed where that
+*specific* type rolls first — see `unit-worldevents.mts`'s pattern: loop
+seeds 0..2000 calling `advanceWorldEvents` with `nextWorldEventArrivalAt:
+now` until `resolved[0]?.type === 'targetType'`. Cheap (pure function, no
+I/O) and keeps the assertion tied to the real weighted-pick logic instead
+of hand-computing a matching seed.
+
+**Per explicit user instruction: lore/explanation belongs in its own
+screen, not the main outpost view.** This shaped the whole UI side of
+this feature — a new `ChronicleScreen` (topbar 📜 button, same
+`settings-overlay`/`settings-sheet` pattern as Settings/BuildMenu) is
+where the world-event legend text and the full incursion+world-event
+timeline live; the main outpost view only ever gets a terse one-line
+live alert (`liveWorldEventAlert`, mirroring the existing
+`liveBattleAlert` pattern) when something resolves live. Don't add a new
+explanatory paragraph to the outpost view again — if it's not a number
+the player needs at a glance, it goes in Chronicle (or a future tab
+alongside it).
+
+**`.settings-sheet` gained `max-height: 80vh; overflow-y: auto`** since
+Chronicle's combined timeline + legend can run long — this is shared
+across Settings/BuildMenu/OfflineSummary/Chronicle, so any future sheet
+with enough content to overflow the viewport now scrolls internally
+instead of clipping, without needing its own CSS.
+
+Verify the live alert with a doctored `nextWorldEventArrivalAt` a second
+or two in the future + `page.waitForSelector('.battle-alert', {timeout:
+15000})` (reuses the same `.battle-alert` class/colors as incursion
+alerts — `battle-alert-repelled` for caravan, `battle-alert-breached`
+for the other four) — this is the one live-tick-dependent check in the
+suite, needs a generous timeout since the live loop's firing interval is
+itself irregular under headless Chromium (see the Phase 3 live-tick
+throttling note above).

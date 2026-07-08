@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useGameStore } from '../state/store';
 import { OutpostScreen } from './OutpostScreen';
 import { GameOverScreen } from './GameOverScreen';
+import { ChronicleScreen } from './ChronicleScreen';
 import { RadarGlyph } from './RadarGlyph';
 import { SettingsScreen } from './SettingsScreen';
 import { OfflineSummaryModal } from './OfflineSummaryModal';
@@ -14,6 +15,7 @@ export function App() {
   const gameOver = useGameStore((s) => s.game.gameOver);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [buildMenuOpen, setBuildMenuOpen] = useState(false);
+  const [chronicleOpen, setChronicleOpen] = useState(false);
 
   // 'system' means "no explicit override" — let the prefers-color-scheme
   // media query in CSS decide; otherwise stamp the choice for CSS to read.
@@ -40,9 +42,11 @@ export function App() {
       <OutpostScreen
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenBuildMenu={() => setBuildMenuOpen(true)}
+        onOpenChronicle={() => setChronicleOpen(true)}
       />
       {settingsOpen && <SettingsScreen onClose={() => setSettingsOpen(false)} />}
       {buildMenuOpen && <BuildMenuScreen onClose={() => setBuildMenuOpen(false)} />}
+      {chronicleOpen && <ChronicleScreen onClose={() => setChronicleOpen(false)} />}
       <OfflineSummaryModal />
       <Toast />
     </>

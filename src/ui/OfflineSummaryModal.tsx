@@ -1,6 +1,6 @@
 import { MODULES } from '../config/halcyon-config';
 import { useGameStore } from '../state/store';
-import type { Incursion, ResourceId } from '../engine/types';
+import type { Incursion, ResourceId, WorldEvent, WorldEventType } from '../engine/types';
 import { formatDuration } from './format';
 
 const RESOURCE_META: Record<ResourceId, { icon: string; label: string }> = {
@@ -28,6 +28,35 @@ function battleLine(incursion: Incursion): string {
     .join(' ');
   const damage = incursion.damagedModuleType ? `; ${MODULES[incursion.damagedModuleType].name} damaged` : '';
   return `${typeLabel} raid (strength ${incursion.strength}) — BREACHED, defense only ${incursion.defenseValue}. Lost ${lossParts || 'nothing stored'}${damage}.`;
+}
+
+const WORLD_EVENT_ICON: Record<WorldEventType, string> = {
+  blight: '🥀',
+  fire: '🔥',
+  plague: '🤒',
+  theft: '🗡️',
+  caravan: '🐎',
+};
+
+function worldEventLine(event: WorldEvent): string {
+  const lossParts = Object.entries(event.resourceLosses ?? {})
+    .map(([id, amount]) => `${RESOURCE_META[id as ResourceId].icon}${Math.round(amount as number)}`)
+    .join(' ');
+  const gainParts = Object.entries(event.resourceGains ?? {})
+    .map(([id, amount]) => `${RESOURCE_META[id as ResourceId].icon}${Math.round(amount as number)}`)
+    .join(' ');
+  switch (event.type) {
+    case 'blight':
+      return `Blight ruined the harvest. Lost ${lossParts || 'nothing stored'}.`;
+    case 'fire':
+      return `A fire broke out${event.damagedModuleType ? `, damaging the ${MODULES[event.damagedModuleType].name}` : ''}.`;
+    case 'plague':
+      return `Illness swept through the village.${event.colonistLost ? ' A villager was lost.' : ''}`;
+    case 'theft':
+      return `Bandits pilfered supplies in the night. Lost ${lossParts || 'nothing stored'}.`;
+    case 'caravan':
+      return `A trading caravan passed through, trading generously. Gained ${gainParts || 'nothing'}.`;
+  }
 }
 
 export function OfflineSummaryModal() {
@@ -70,6 +99,16 @@ export function OfflineSummaryModal() {
                 className={incursion.outcome === 'breached' ? 'battle-breached' : 'battle-repelled'}
               >
                 {battleLine(incursion)}
+              </p>
+            ))}
+          </div>
+        )}
+        {summary.worldEventReport.length > 0 && (
+          <div className="battle-report">
+            <p className="module-tile-sub">World events</p>
+            {summary.worldEventReport.map((event) => (
+              <p key={event.id} className={event.type === 'caravan' ? 'battle-repelled' : 'battle-breached'}>
+                {WORLD_EVENT_ICON[event.type]} {worldEventLine(event)}
               </p>
             ))}
           </div>

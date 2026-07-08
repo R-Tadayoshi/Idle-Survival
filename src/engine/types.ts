@@ -79,6 +79,26 @@ export interface Incursion {
   damagedModuleType?: ModuleType;
 }
 
+/** Random, uncontrollable happenings — mostly bad, occasionally a windfall
+ *  (caravan). No building or defense prevents one; the whole point is that
+ *  there's no counter-play, unlike incursions. */
+export type WorldEventType = 'blight' | 'fire' | 'plague' | 'theft' | 'caravan';
+
+export interface WorldEvent {
+  id: string;
+  /** epoch ms, from the deterministic seed-based schedule; also the moment
+   *  it resolved, since resolution happens exactly at arrival */
+  arrivalAt: number;
+  type: WorldEventType;
+  resourceLosses?: Partial<Record<ResourceId, number>>;
+  resourceGains?: Partial<Record<ResourceId, number>>;
+  moraleDelta?: number;
+  /** set when a fire damages a module */
+  damagedModuleType?: ModuleType;
+  /** set when a plague costs a villager outright */
+  colonistLost?: boolean;
+}
+
 export interface GameState {
   /** save-schema version, drives migrations on load */
   version: number;
@@ -101,6 +121,11 @@ export interface GameState {
    *  this is a cache of that recurrence's progress, not new source data. */
   nextIncursionIndex: number;
   nextIncursionArrivalAt: number;
+  /** same shape as the incursion history/cursor above, but for random
+   *  world events -- an entirely separate deterministic schedule. */
+  worldEvents: WorldEvent[];
+  nextWorldEventIndex: number;
+  nextWorldEventArrivalAt: number;
   military: Military;
   survival: {
     dayCount: number;

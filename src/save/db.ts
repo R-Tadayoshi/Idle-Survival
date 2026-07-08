@@ -7,6 +7,7 @@
 import { openDB, type IDBPDatabase } from 'idb';
 import { firstIncursionArrival } from '../engine/incursions';
 import { createStarterModules } from '../engine/newGame';
+import { firstWorldEventArrival } from '../engine/worldEvents';
 import type { GameState } from '../engine/types';
 import { SAVE_VERSION } from './version';
 
@@ -65,6 +66,10 @@ function migrate(raw: unknown): GameState | null {
         incursions: save.incursions ?? [],
         nextIncursionIndex: save.nextIncursionIndex ?? 0,
         nextIncursionArrivalAt: save.nextIncursionArrivalAt ?? firstIncursionArrival(save.createdAt ?? save.lastActiveAt),
+        worldEvents: save.worldEvents ?? [],
+        nextWorldEventIndex: save.nextWorldEventIndex ?? 0,
+        nextWorldEventArrivalAt:
+          save.nextWorldEventArrivalAt ?? firstWorldEventArrival(save.createdAt ?? save.lastActiveAt),
         military: save.military ?? { soldiers: priorTrainingCampWorkers, archers: 0, training: [] },
         // A save from before morale/defeat existed only had { dayCount } (or
         // an unused { integrity, dayCount }) -- back-fill a fresh, un-defeated

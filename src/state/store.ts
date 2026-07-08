@@ -14,7 +14,7 @@ import { GLOBAL } from '../config/halcyon-config';
 import { setTraining } from '../engine/military';
 import { createNewGame } from '../engine/newGame';
 import { tick as tickEngine } from '../engine/tick';
-import type { GameState, Incursion, ModuleType, ResourceId, ThemePreference, TroopType } from '../engine/types';
+import type { GameState, Incursion, ModuleType, ResourceId, ThemePreference, TroopType, WorldEvent } from '../engine/types';
 
 export type SaveStatus = 'loading' | 'saved' | 'dirty';
 
@@ -32,6 +32,8 @@ interface GameStore {
    *  which has its own battle report in offlineSummary) — shown as a
    *  transient alert, then cleared. null = nothing to show. */
   liveBattleAlert: Incursion | null;
+  /** same as liveBattleAlert, but for a random world event resolved live. */
+  liveWorldEventAlert: WorldEvent | null;
   /** a short-lived status message (SW update/offline-ready, etc.) — a new
    *  call replaces whatever's showing; the Toast component owns the
    *  auto-dismiss timer. null = nothing to show. */
@@ -56,6 +58,7 @@ interface GameStore {
   runCatchup: (now?: number) => void;
   dismissOfflineSummary: () => void;
   dismissLiveBattleAlert: () => void;
+  dismissLiveWorldEventAlert: () => void;
   showToast: (message: string) => void;
   dismissToast: () => void;
   dismissOnboarding: () => void;
@@ -68,6 +71,7 @@ export const useGameStore = create<GameStore>()((set) => ({
   storagePersisted: null,
   offlineSummary: null,
   liveBattleAlert: null,
+  liveWorldEventAlert: null,
   toast: null,
 
   hydrate: (game) => set({ game, ready: true }),
@@ -84,10 +88,16 @@ export const useGameStore = create<GameStore>()((set) => ({
   tick: (dtSeconds) =>
     set((s) => {
       const result = tickEngine(s.game, dtSeconds);
-      const latest = result.resolvedIncursions[result.resolvedIncursions.length - 1];
-      return { game: result.state, liveBattleAlert: latest ?? s.liveBattleAlert };
+      const latestIncursion = result.resolvedIncursions[result.resolvedIncursions.length - 1];
+      const latestWorldEvent = result.resolvedWorldEvents[result.resolvedWorldEvents.length - 1];
+      return {
+        game: result.state,
+        liveBattleAlert: latestIncursion ?? s.liveBattleAlert,
+        liveWorldEventAlert: latestWorldEvent ?? s.liveWorldEventAlert,
+      };
     }),
-  resetGame: () => set({ game: createNewGame(), offlineSummary: null, liveBattleAlert: null }),
+  resetGame: () =>
+    set({ game: createNewGame(), offlineSummary: null, liveBattleAlert: null, liveWorldEventAlert: null }),
   buildModule: (type) => set((s) => ({ game: buildModuleEngine(s.game, type) })),
   upgradeModule: (moduleId) => set((s) => ({ game: upgradeModuleEngine(s.game, moduleId) })),
   repairModule: (moduleId) => set((s) => ({ game: repairModuleEngine(s.game, moduleId) })),
@@ -100,6 +110,7 @@ export const useGameStore = create<GameStore>()((set) => ({
     }),
   dismissOfflineSummary: () => set({ offlineSummary: null }),
   dismissLiveBattleAlert: () => set({ liveBattleAlert: null }),
+  dismissLiveWorldEventAlert: () => set({ liveWorldEventAlert: null }),
   showToast: (toast) => set({ toast }),
   dismissToast: () => set({ toast: null }),
   dismissOnboarding: () =>

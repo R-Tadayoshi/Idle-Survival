@@ -189,6 +189,32 @@ export const MORALE = {
   STARVATION_DEFEAT_SECONDS: 6 * 60 * 60,
 } as const;
 
+// ── World events ──────────────────────────────────────────────────────────────
+// Random, uncontrollable happenings on their own deterministic seed-based
+// schedule (same shape as incursions -- pure function of (seed, index), no
+// building/counter-play prevents one from arriving, no advance warning).
+// Mostly bad, occasionally a windfall, matching "stuff that happens and is
+// most of the time bad for your kingdom." Each event's effect is instant and
+// one-shot -- no ongoing timed multipliers -- so resolution is a plain
+// state mutation shaped just like an incursion breach, not a whole second
+// duration-tracking subsystem.
+export const WORLD_EVENTS = {
+  FIRST_EVENT_DELAY_SECONDS: 12 * 60, // ~12 min grace period into a fresh game
+  BASE_INTERVAL_HOURS: 4,             // avg real-time gap between events
+  INTERVAL_JITTER: 0.4,               // wider spread than incursions -- less predictable, by design
+  HISTORY_LIMIT: 20,
+
+  BLIGHT_RATIONS_LOSS_PCT: 0.25,      // bad harvest: lose 25% of current rations stock
+  THEFT_LOSS_PCT: 0.15,               // bandits pilfer 15% of current scrap + ore
+  PLAGUE_MORALE_HIT: 15,              // illness dampens spirits
+  PLAGUE_COLONIST_LOSS_CHANCE: 0.35,  // and has a chance to cost a villager outright
+  CARAVAN_GAIN_PCT: 0.15,             // rare windfall: +15% of current scrap + ore from a passing trader
+
+  // Rows sum isn't required to be 1 -- pickWeighted normalizes. Caravan
+  // (the one positive type) is deliberately the rarest.
+  TYPE_WEIGHTS: { blight: 0.25, fire: 0.2, plague: 0.2, theft: 0.25, caravan: 0.1 },
+} as const;
+
 // ── Prestige (implement last) ────────────────────────────────────────────────
 export const PRESTIGE = {
   UNLOCK_DAY_COUNT: 30,          // eligible to re-found after surviving 30 days
