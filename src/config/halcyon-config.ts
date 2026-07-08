@@ -189,12 +189,27 @@ export const PRESTIGE = {
   MULTIPLIER_PER_LEVEL: 0.1,     // +10% global production per prestige level
 } as const;
 
+// ── Worker slots ──────────────────────────────────────────────────────────────
+// A module's base maxWorkers alone would bottleneck a growing population --
+// with dozens of villagers to place, a handful of Lv.1 5-slot sites leaves
+// most of them idle. Slots scale two ways: upgrading the site itself, and
+// the colony's total population simply being big enough to spare more hands
+// for every site at once.
+export const WORKER_SLOTS_PER_LEVEL = 1;       // +1 slot per module level above 1
+export const WORKER_SLOTS_PER_POPULATION = 1;  // +1 slot (per module) per POPULATION_SLOTS_STEP total villagers
+export const POPULATION_SLOTS_STEP = 10;
+
 // ── Derived helpers (reference implementations) ──────────────────────────────
 export const costAtLevel = (base: number, level: number, mult = MODULE_COST_MULT) =>
   Math.round(base * Math.pow(mult, level - 1));
 
 export const productionAtLevel = (rate: number, level: number, mult = MODULE_PRODUCTION_MULT) =>
   rate * Math.pow(mult, level - 1);
+
+export const effectiveMaxWorkers = (baseMax: number, level: number, colonistsTotal: number) =>
+  baseMax +
+  (level - 1) * WORKER_SLOTS_PER_LEVEL +
+  Math.floor(colonistsTotal / POPULATION_SLOTS_STEP) * WORKER_SLOTS_PER_POPULATION;
 
 export const incursionStrength = (index: number) =>
   Math.round(INCURSIONS.BASE_STRENGTH * Math.pow(INCURSIONS.STRENGTH_GROWTH, index));

@@ -6,7 +6,7 @@
  * standing troop, no longer tied to the Training Camp's own worker slots
  * (those just cap how many can be training AT ONCE, not total army size).
  */
-import { MILITARY, MODULES } from '../config/halcyon-config';
+import { MILITARY, MODULES, effectiveMaxWorkers } from '../config/halcyon-config';
 import type { GameState, TroopType } from './types';
 
 /** How many villagers are currently occupying a training slot (mid-order),
@@ -23,7 +23,10 @@ export function setTraining(state: GameState, type: TroopType, delta: number, no
   const camp = state.modules.find((m) => m.type === 'trainingCamp' && !m.damaged);
   if (!camp || delta === 0) return state;
 
-  const maxWorkers = 'maxWorkers' in MODULES.trainingCamp ? MODULES.trainingCamp.maxWorkers : 0;
+  const maxWorkers =
+    'maxWorkers' in MODULES.trainingCamp
+      ? effectiveMaxWorkers(MODULES.trainingCamp.maxWorkers, camp.level, state.colonists.total)
+      : 0;
   const inProgress = trainingInProgressCount(state);
   const idle = state.colonists.total - state.colonists.assigned;
 

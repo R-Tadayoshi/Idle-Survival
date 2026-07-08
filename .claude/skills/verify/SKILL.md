@@ -603,3 +603,44 @@ a colony to death -- same pattern as every other engine-state test in this
 file. Assert `.outpost` has zero count while `.game-over` is showing, not
 just that `.game-over` itself appeared, to catch a gate that shows both at
 once.
+
+## Worker-slot scaling + radar text trim (user feedback pass)
+
+Two small user-reported issues, fixed together:
+
+1. **"more villagers should be able to work a site as it upgrades or as
+   population grows."** Every production/utility module's `maxWorkers` was
+   a flat constant regardless of level or colony size — with the earlier
+   population rebalance (cap toward "dozens/~100"), a handful of Lv.1
+   5-slot sites bottlenecked hard, leaving most villagers permanently
+   idle with nowhere to go. Added `effectiveMaxWorkers(baseMax, level,
+   colonistsTotal)` in config: `+1 slot per module level` AND `+1 slot per
+   POPULATION_SLOTS_STEP (10) total colonists` — both apply, since the
+   user explicitly asked for "when it upgrades... or when you have X
+   villagers" (level OR population, not either/or in the design). Threaded
+   through all four places that read `maxWorkers` directly: `actions.ts`
+   (assignment clamp), `military.ts` (training-order room calc), and
+   `OutpostScreen.tsx`'s `ModuleCard` + `TrainingCampCard` (display +
+   button-disabled logic) — grep for `maxWorkers` before adding a new
+   module type/worker-slot module to make sure it goes through the shared
+   helper too, not a raw `def.maxWorkers` read.
+2. **"remove the line of text of explanation for the watchtower and
+   defense... it takes up too much space."** Trimmed the instructional
+   suffixes appended to otherwise-fine data lines: "No scan coverage —
+   build a Watchtower to spot raiders coming." → "No scan coverage.";
+   the L1 rough-intel line dropped its "Upgrade the Watchtower for a
+   clearer picture." tail; "Defense rating: N — train villagers as
+   Soldiers or Archers, or build a Ballista..." → just "Defense rating:
+   N". Kept every other line (ETA, ETA-only rough intel, composition
+   intel, defense-vs-incoming comparison, morale) as-is — those are
+   actual data, not "how to fix this" hand-holding, which is the
+   distinction the user was drawing. If trimming radar/status text again,
+   preserve that distinction rather than cutting numbers/state to save
+   more space.
+
+Neither change touched hardcoded test numbers in the existing suite: the
+worker-slot formula only adds a *bonus* on top of level 1 + a population
+under `POPULATION_SLOTS_STEP` (10), so every existing Phase 2/reset/
+training-camp assertion (all written against a fresh ~3-colonist, Lv.1
+scenario) evaluates to the exact same numbers as before — verified by
+re-running the full suite rather than assuming it from the math.

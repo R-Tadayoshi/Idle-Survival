@@ -5,7 +5,16 @@
  */
 import { useEffect } from 'react';
 import { useGameStore } from '../state/store';
-import { INCURSIONS, MANUAL_TAP_YIELD, MODULES, MORALE, POWER, SENTINEL, productionAtLevel } from '../config/halcyon-config';
+import {
+  INCURSIONS,
+  MANUAL_TAP_YIELD,
+  MODULES,
+  MORALE,
+  POWER,
+  SENTINEL,
+  effectiveMaxWorkers,
+  productionAtLevel,
+} from '../config/halcyon-config';
 import { BUILDABLE_MODULE_TYPES, canAfford, getModuleCost, getRepairCost } from '../engine/build';
 import { computeDefense, computeDefenseAgainst } from '../engine/defense';
 import { peekUpcomingIncursions } from '../engine/incursions';
@@ -192,10 +201,7 @@ export function OutpostScreen({ onOpenSettings, onOpenBuildMenu }: OutpostScreen
               {nextIncursion ? (
                 <p className="radar-hint">
                   {roughIntelOnly ? (
-                    <>
-                      Scouts spot movement — a raid is roughly {roughEtaLabel(nextIncursion.arrivalAt)} away. Upgrade
-                      the Watchtower for a clearer picture.
-                    </>
+                    <>Scouts spot movement — a raid is roughly {roughEtaLabel(nextIncursion.arrivalAt)} away.</>
                   ) : (
                     <>
                       {TYPE_LABEL[nextIncursion.type]} raid inbound — ETA{' '}
@@ -220,14 +226,11 @@ export function OutpostScreen({ onOpenSettings, onOpenBuildMenu }: OutpostScreen
                 <span className="radar-dot" />
                 WATCHTOWER OFFLINE
               </div>
-              <p className="radar-hint">No scan coverage — build a Watchtower to spot raiders coming.</p>
+              <p className="radar-hint">No scan coverage.</p>
             </div>
           </div>
         )}
-        <p className="radar-defense">
-          🛡️ Defense rating: {defense} — train villagers as Soldiers or Archers, or build a Ballista, Palisade, or
-          Ward Stone to arm your defenses.
-        </p>
+        <p className="radar-defense">🛡️ Defense rating: {defense}</p>
         <p
           className={`radar-morale${
             morale <= MORALE.DEFECTION_THRESHOLD ? ' radar-morale-danger' : morale <= 50 ? ' radar-morale-warn' : ''
@@ -330,7 +333,7 @@ function ModuleCard({ module, idleColonists, onExtract, onAssign, onUpgrade, onR
   // Training Camp (the only other maxWorkers module) renders via
   // TrainingCampCard instead — every module reaching here with maxWorkers
   // is a production module.
-  const maxWorkers = 'maxWorkers' in def ? def.maxWorkers : 0;
+  const maxWorkers = 'maxWorkers' in def ? effectiveMaxWorkers(def.maxWorkers, module.level, game.colonists.total) : 0;
   const ratePerWorker = hasProduction ? productionAtLevel(def.ratePerWorker, module.level) : 0;
   // Actual rate, not the nominal one — factors in the current hunger/power
   // throttle so this matches what the player is really accruing per second,
@@ -455,7 +458,7 @@ interface TrainingCampCardProps {
 function TrainingCampCard({ module, idleColonists, onTrain, onUpgrade, onRepair }: TrainingCampCardProps) {
   const game = useGameStore((s) => s.game);
   const def = MODULES.trainingCamp;
-  const maxWorkers = def.maxWorkers;
+  const maxWorkers = effectiveMaxWorkers(def.maxWorkers, module.level, game.colonists.total);
   const inProgress = trainingInProgressCount(game);
   const slotsLeft = maxWorkers - inProgress;
 

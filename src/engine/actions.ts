@@ -2,7 +2,7 @@
  * Manual player actions — tap-to-extract and worker assignment. Pure
  * functions: given a state, return a new state, no side effects.
  */
-import { MANUAL_TAP_YIELD, MODULES } from '../config/halcyon-config';
+import { MANUAL_TAP_YIELD, MODULES, effectiveMaxWorkers } from '../config/halcyon-config';
 import type { GameState, ResourceId } from './types';
 
 const TAP_YIELD = MANUAL_TAP_YIELD as Partial<Record<ResourceId, number>>;
@@ -30,7 +30,7 @@ export function setAssignedWorkers(state: GameState, moduleId: string, delta: nu
   if (!module) return state;
 
   const def = MODULES[module.type];
-  const maxWorkers = 'maxWorkers' in def ? def.maxWorkers : 0;
+  const maxWorkers = 'maxWorkers' in def ? effectiveMaxWorkers(def.maxWorkers, module.level, state.colonists.total) : 0;
   const idle = state.colonists.total - state.colonists.assigned;
 
   const newAssigned = Math.max(0, Math.min(module.assignedWorkers + delta, maxWorkers, module.assignedWorkers + idle));
