@@ -62,8 +62,13 @@ function incursionLine(incursion: Incursion): string {
     return `${label} raid (strength ${incursion.strength}) — repelled, defense held at ${incursion.defenseValue}.`;
   }
   const losses = resourceList(incursion.resourceLosses);
-  const damage = incursion.damagedModuleType ? `; ${MODULES[incursion.damagedModuleType].name} damaged` : '';
-  return `${label} raid (strength ${incursion.strength}) — breached, defense only ${incursion.defenseValue}. Lost ${losses || 'nothing stored'}${damage}.`;
+  const damage = incursion.damagedModuleTypes?.length
+    ? `; ${incursion.damagedModuleTypes.map((t) => MODULES[t].name).join(', ')} damaged`
+    : '';
+  const casualties = incursion.colonistsLost
+    ? `; ${incursion.colonistsLost} villager${incursion.colonistsLost === 1 ? '' : 's'} lost`
+    : '';
+  return `${label} raid (strength ${incursion.strength}) — breached, defense only ${incursion.defenseValue}. Lost ${losses || 'nothing stored'}${damage}${casualties}.`;
 }
 
 function worldEventLine(event: WorldEvent): string {
@@ -87,11 +92,7 @@ type TimelineEntry =
   | { kind: 'incursion'; arrivalAt: number; id: string; incursion: Incursion }
   | { kind: 'worldEvent'; arrivalAt: number; id: string; event: WorldEvent };
 
-interface ChronicleScreenProps {
-  onClose: () => void;
-}
-
-export function ChronicleScreen({ onClose }: ChronicleScreenProps) {
+export function ChronicleScreen() {
   const incursions = useGameStore((s) => s.game.incursions);
   const worldEvents = useGameStore((s) => s.game.worldEvents);
 
@@ -101,15 +102,14 @@ export function ChronicleScreen({ onClose }: ChronicleScreenProps) {
   ].sort((a, b) => b.arrivalAt - a.arrivalAt);
 
   return (
-    <div className="settings-overlay" onClick={onClose}>
-      <div className="settings-sheet panel" onClick={(e) => e.stopPropagation()}>
-        <div className="settings-head">
+    <div className="chronicle-screen">
+      <header className="topbar">
+        <div className="brand">
           <span>CHRONICLE</span>
-          <button className="icon-button" onClick={onClose} aria-label="Close chronicle">
-            ✕
-          </button>
         </div>
+      </header>
 
+      <div className="chronicle-body">
         <p className="chronicle-intro">
           Everything recorded to have happened to Hearthold — raids your Watchtower detected, and random world events
           that no building can prevent.

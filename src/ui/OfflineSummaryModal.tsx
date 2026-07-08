@@ -26,8 +26,13 @@ function battleLine(incursion: Incursion): string {
   const lossParts = Object.entries(incursion.resourceLosses ?? {})
     .map(([id, amount]) => `${RESOURCE_META[id as ResourceId].icon}${Math.round(amount as number)}`)
     .join(' ');
-  const damage = incursion.damagedModuleType ? `; ${MODULES[incursion.damagedModuleType].name} damaged` : '';
-  return `${typeLabel} raid (strength ${incursion.strength}) — BREACHED, defense only ${incursion.defenseValue}. Lost ${lossParts || 'nothing stored'}${damage}.`;
+  const damage = incursion.damagedModuleTypes?.length
+    ? `; ${incursion.damagedModuleTypes.map((t) => MODULES[t].name).join(', ')} damaged`
+    : '';
+  const casualties = incursion.colonistsLost
+    ? `; ${incursion.colonistsLost} villager${incursion.colonistsLost === 1 ? '' : 's'} lost`
+    : '';
+  return `${typeLabel} raid (strength ${incursion.strength}) — BREACHED, defense only ${incursion.defenseValue}. Lost ${lossParts || 'nothing stored'}${damage}${casualties}.`;
 }
 
 const WORLD_EVENT_ICON: Record<WorldEventType, string> = {

@@ -114,10 +114,9 @@ const UTILITY_ICON: Partial<Record<ModuleType, string>> = {
 interface OutpostScreenProps {
   onOpenSettings: () => void;
   onOpenBuildMenu: () => void;
-  onOpenChronicle: () => void;
 }
 
-export function OutpostScreen({ onOpenSettings, onOpenBuildMenu, onOpenChronicle }: OutpostScreenProps) {
+export function OutpostScreen({ onOpenSettings, onOpenBuildMenu }: OutpostScreenProps) {
   const game = useGameStore((s) => s.game);
   const saveStatus = useGameStore((s) => s.saveStatus);
   const extract = useGameStore((s) => s.extract);
@@ -165,7 +164,7 @@ export function OutpostScreen({ onOpenSettings, onOpenBuildMenu, onOpenChronicle
   const morale = game.survival.morale;
 
   return (
-    <div className="outpost">
+    <div className="outpost" data-save-status={saveStatus}>
       <header className="topbar">
         <div className="brand">
           <RadarGlyph size={18} dim />
@@ -181,12 +180,6 @@ export function OutpostScreen({ onOpenSettings, onOpenBuildMenu, onOpenChronicle
           <span title={`Villager cap: ${game.colonists.cap}`}>
             👤 {game.colonists.assigned}/{game.colonists.total}
           </span>
-          <span className={`save-pill save-${saveStatus}`}>
-            {saveStatus === 'saved' ? '● saved' : saveStatus === 'dirty' ? '○ saving…' : '… loading'}
-          </span>
-          <button className="icon-button" onClick={onOpenChronicle} aria-label="Open chronicle">
-            📜
-          </button>
           <button className="icon-button" onClick={onOpenSettings} aria-label="Open settings">
             ⚙️
           </button>
@@ -220,7 +213,7 @@ export function OutpostScreen({ onOpenSettings, onOpenBuildMenu, onOpenChronicle
         >
           {liveBattleAlert.outcome === 'repelled'
             ? `⚔ ${TYPE_LABEL[liveBattleAlert.type]} raid repelled! Defense held at ${liveBattleAlert.defenseValue}. (tap to dismiss)`
-            : `⚠ ${TYPE_LABEL[liveBattleAlert.type]} raid breached our defenses! ${liveBattleAlert.damagedModuleType ? `${MODULES[liveBattleAlert.damagedModuleType].name} damaged. ` : ''}(tap to dismiss)`}
+            : `⚠ ${TYPE_LABEL[liveBattleAlert.type]} raid breached our defenses! ${(liveBattleAlert.damagedModuleTypes ?? []).map((t) => MODULES[t].name).join(', ')}${liveBattleAlert.damagedModuleTypes?.length ? ' damaged. ' : ''}${liveBattleAlert.colonistsLost ? `${liveBattleAlert.colonistsLost} villager${liveBattleAlert.colonistsLost === 1 ? '' : 's'} lost. ` : ''}(tap to dismiss)`}
         </p>
       )}
 

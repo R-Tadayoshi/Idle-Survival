@@ -737,3 +737,123 @@ for the other four) — this is the one live-tick-dependent check in the
 suite, needs a generous timeout since the live loop's firing interval is
 itself irregular under headless Chromium (see the Phase 3 live-tick
 throttling note above).
+
+## Save-status pill removed; use `[data-save-status]` for autosave sync
+
+User feedback: "remove the saved thing on top, it's not needed." The
+visible `.save-pill` (topbar "● saved"/"○ saving…") is gone. Since
+**every** E2E test in this suite used `document.querySelector('.save-pill')
+?.textContent?.includes('saved')` to know when the throttled autosave had
+actually landed before reading IndexedDB, removing it outright would have
+broken that synchronization everywhere, not just cosmetically. Fix: the
+`.outpost` root div now carries `data-save-status={saveStatus}` (same
+values: `'saved' | 'dirty' | 'loading'`) — invisible, no UI footprint, but
+still queryable. **New pattern, use going forward:**
+```js
+await page.waitForFunction(() => document.querySelector('.outpost')?.dataset.saveStatus === 'saved');
+```
+(All `.save-pill` waits across the whole suite were bulk-`sed`-replaced to
+this in one pass — if you find an old one, it predates this change.)
+
+## Raid severity now scales continuously with shortfall — up to a total wipe
+
+User feedback: "the loss should be substantial to how much weaker you
+are... it can lead to a loss of the game if the player is so weak."
+Previously breach loss was capped at 30% of a stockpile
+(`INCURSIONS.MAX_LOSS_PCT`) and damaged exactly one module, regardless of
+how outmatched the defense was — a colony with literally zero defense lost
+the same 30% as one that was only slightly short. Now `LOSS_FACTOR`/
+`MAX_LOSS_PCT` are both 1.0 (loss% = shortfallRatio directly, no cap), the
+**number** of buildings damaged scales with shortfallRatio (up to ALL
+undamaged candidates at shortfallRatio 1.0, not just one), and past a new
+`INCURSIONS.CASUALTY_SHORTFALL` (0.7) threshold a breach starts costing
+villagers outright via the same `removeOneColonist` defection uses, scaling
+to the entire population at shortfallRatio 1.0 (zero defense). A
+completely undefended colony hit by any raid now loses everything —
+resources, every building, every villager — which naturally triggers the
+existing `checkGameOver`'s `population` defeat once colonists hit 0. This
+was a deliberate design choice to reuse existing systems (no new "overrun"
+defeat reason, no special-cased instant-kill flag) rather than reintroduce
+the kind of ad hoc insta-death branch rejected earlier in this project —
+zero defense just means zero population survives, which the existing
+population-based defeat check already handles.
+
+`Incursion.damagedModuleType` (singular) became `damagedModuleTypes`
+(array) to support multiple buildings taking damage in one breach — grep
+for the old singular name if you're touching incursion display code
+again, it's gone from the type (World events' `damagedModuleType` stays
+singular; only fire ever damages a building, and always exactly one).
+
+`incursions.ts`'s `resolveOne`/`advanceIncursions` were refactored from
+the old `Pick<GameState, ...>`-narrowed-fields style to the same
+full-`GameState`-in-`GameState`-out style `worldEvents.ts` already used —
+threading `colonists`/`military` through the old narrow-Pick style would
+have been more awkward than just matching the pattern that already existed
+for the sibling scheduler.
+
+**This severity change broke two *existing* E2E scenarios that had
+nothing to do with severity on paper** — both built a Watchtower with
+*zero* other defense and let a raid resolve, previously just testing "a
+breach happens." Zero defense now means a total wipe, so `.outpost` never
+renders again (a wiped colony goes straight to `GameOverScreen`, per the
+established "gameOver blocks everything" rule) and `page.waitForSelector
+('.outpost')` times out. Fix wasn't to weaken the mechanic — it was to
+give those specific test setups a *sliver* of defense
+(`save.military.soldiers = 1`) so they still breach (proving the thing
+they actually test) without triggering the unrelated wipe-out path (which
+has its own dedicated test, `unit-raid-severity.mts`). **Any test that
+lets an incursion resolve against a genuinely zero-defense colony must now
+expect a wipe/game-over, not just "a breach happened".**
+
+**A third, unrelated pre-existing scenario broke for a different reason:**
+Phase 3's "24h gap clamps to 12h" test uses a fully-idle, non-producing
+colony sitting for a (clamped) 12 real hours — before morale/defeat
+existed this was harmless, but now the colony starves and/or sits
+underpowered continuously for that whole window, and morale fully drains
+from *either* condition alone in under 90 real minutes
+(`MORALE.DRAIN_PER_SEC_STARVING`/`DRAIN_PER_SEC_UNDERPOWERED`), well under
+12h — triggering a real, correct starvation/morale defeat that has
+nothing to do with what the test is actually checking (the offline-gap
+*duration clamp*, not survival). Fix: neutralize both triggers in the
+save setup, not just one — a huge (test-only, above-cap) rations
+stockpile (topping up to the normal cap alone still drains in under 10
+real minutes against idle upkeep) *and* an injected Reactor module so the
+colony is powered. **Any test that simulates a long unattended gap (hours,
+not minutes) on a colony that doesn't actually sustain itself needs both
+fed and powered explicitly forced, or morale/defeat will legitimately end
+the game partway through the replay** — this is correct engine behavior,
+not a bug to work around by other means.
+
+## Bottom tab bar replaces the Chronicle modal
+
+User feedback: "for the tab, it should be a thing on the bottom of the
+screen that is a tab you see in other apps." `ChronicleScreen` changed
+from a `settings-overlay`/`settings-sheet` modal (opened via a topbar
+button, closed via `onClose`) into a full-screen view exactly like
+`OutpostScreen`, switched via a new persistent `TabBar` component
+(`.tab-bar` / `.tab-bar-button`, bottom of viewport, standard mobile-app
+nav pattern). `App.tsx` now holds `activeTab: 'outpost' | 'chronicle'`
+state and renders exactly one of `<OutpostScreen>`/`<ChronicleScreen>`
+inside a shared `.app-content` flex area, with `<TabBar>` always visible
+below it — Settings/BuildMenu are unchanged (still topbar-icon-triggered
+modals; the user's request was specifically about "the tab," i.e.
+Chronicle, not a full nav overhaul).
+
+**Layout mechanics**: `.app-shell` (height:100%, flex column) contains
+`.app-content` (`flex:1; min-height:0;`) and `.tab-bar` as siblings — the
+tab bar is a normal flow element, not `position:fixed`, so it doesn't need
+matching bottom-padding hacks on the content screens to avoid being
+covered (the classic fixed-bottom-bar mistake). `.outpost`/`.chronicle-
+screen` are `flex:1; min-height:0;` to fill `.app-content` exactly like
+they used to fill the whole viewport; `padding-bottom: env(safe-area-
+inset-bottom)` moved from `.outpost` onto `.tab-bar` itself, since the tab
+bar is now the bottom-most element that needs to clear the home indicator.
+
+**Test pattern**: `page.locator('.tab-bar-button', { hasText: 'Chronicle'
+})).click()` + `page.waitForSelector('.chronicle-screen')` replaces the
+old `[aria-label="Open chronicle"]` + `.settings-sheet` pattern —
+`ChronicleScreen` no longer takes an `onClose` prop at all (there's
+nothing to close, you just switch tabs). Assert the *other* screen's root
+class has count 0 after switching (`.outpost` count 0 while on Chronicle,
+`.chronicle-screen` count 0 while back on Outpost) to catch a tab switch
+that renders both at once instead of swapping.

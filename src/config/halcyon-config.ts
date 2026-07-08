@@ -130,11 +130,19 @@ export const INCURSIONS = {
   BASE_STRENGTH: 12,
   STRENGTH_GROWTH: 1.35,
 
-  // Breach losses
-  LOSS_FACTOR: 0.6,        // loss% = shortfallRatio * LOSS_FACTOR ...
-  MAX_LOSS_PCT: 0.30,      // ... but never more than 30% of a stockpile per raid
-  STRUCTURE_DAMAGE_SHORTFALL: 0.5, // if shortfallRatio > this, disable 1 module (seeded)
-  // shortfallRatio = clamp((strength - defense) / strength, 0, 1)
+  // Breach losses — scale continuously with how outmatched the defense was
+  // (shortfallRatio = clamp((strength - defense) / strength, 0, 1)), all the
+  // way up to losing everything at zero defense. A raid you were braced for
+  // costs little; one you had no answer for can be catastrophic, including
+  // outright colonist deaths — this is deliberate, not a bug: investing in
+  // defense is what keeps a bad raid a setback instead of a wipe.
+  LOSS_FACTOR: 1.0,          // loss% = shortfallRatio * LOSS_FACTOR
+  MAX_LOSS_PCT: 1.0,         // safety clamp, not really a cap at LOSS_FACTOR=1.0 -- zero defense loses the whole stockpile
+  STRUCTURE_DAMAGE_SHORTFALL: 0.5, // past this shortfall, buildings start taking damage (count scales with severity below)
+  // Past this shortfall, a breach starts costing villagers outright, scaling
+  // from 0% of the colony at CASUALTY_SHORTFALL up to the entire population
+  // at shortfallRatio 1.0 (zero defense) -- see resolveOne in incursions.ts.
+  CASUALTY_SHORTFALL: 0.7,
 
   // Type ↔ defense effectiveness multipliers (defenseValue × factor)
   // Rows = incursion type, cols = defense source. soldier/archer are
@@ -175,7 +183,7 @@ export const MORALE = {
   DRAIN_PER_SEC_STARVING: 0.05,     // ~33 min to fully drain from 100 on starvation alone
   DRAIN_PER_SEC_UNDERPOWERED: 0.02, // slower burn than outright starving
   RECOVER_PER_SEC: 0.03,            // passive regen once fed + powered
-  BREACH_HIT_PER_LOSS_PCT: 40,      // morale lost = lossPct * this (lossPct maxes at MAX_LOSS_PCT above)
+  BREACH_HIT_PER_LOSS_PCT: 40,      // morale lost = lossPct * this (lossPct can reach 1.0 -- see INCURSIONS.LOSS_FACTOR)
   REPELLED_BONUS: 3,                // small morale reward for a successful defense
 
   // Below this, villagers start slipping away (see engine/morale.ts) — a

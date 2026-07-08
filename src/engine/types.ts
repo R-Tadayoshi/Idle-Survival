@@ -75,8 +75,13 @@ export interface Incursion {
   lossPct?: number;
   /** actual amount lost per resource, only set when outcome is 'breached' */
   resourceLosses?: Partial<Record<ResourceId, number>>;
-  /** set if the breach's shortfall exceeded INCURSIONS.STRUCTURE_DAMAGE_SHORTFALL */
-  damagedModuleType?: ModuleType;
+  /** every module damaged this breach — count scales with how far the
+   *  shortfall exceeded INCURSIONS.STRUCTURE_DAMAGE_SHORTFALL, up to all
+   *  undamaged modules at once for a near-total shortfall */
+  damagedModuleTypes?: ModuleType[];
+  /** villagers lost outright — only past INCURSIONS.CASUALTY_SHORTFALL,
+   *  scaling to the whole population at shortfallRatio 1.0 (zero defense) */
+  colonistsLost?: number;
 }
 
 /** Random, uncontrollable happenings — mostly bad, occasionally a windfall

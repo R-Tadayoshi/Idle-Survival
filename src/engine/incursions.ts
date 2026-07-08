@@ -18,6 +18,7 @@
  */
 import { GLOBAL, INCURSIONS, MORALE, incursionStrength } from '../config/halcyon-config';
 import { computeDefenseAgainst } from './defense';
+import { removeOneColonist } from './morale';
 import { pickWeighted, seededRng } from './rng';
 import type { GameState, Incursion, IncursionType, ModuleType, ResourceId } from './types';
 
@@ -83,24 +84,28 @@ export function peekUpcomingIncursions(state: GameState, horizonEndAt: number, m
 }
 
 interface ResolveResult {
-  resources: GameState['resources'];
-  modules: GameState['modules'];
-  morale: number;
+  state: GameState;
   record: Incursion;
 }
 
-function resolveOne(
-  state: Pick<GameState, 'resources' | 'modules' | 'seed' | 'military' | 'survival'>,
-  scheduled: ScheduledIncursion,
-): ResolveResult {
+/** A breach's severity scales continuously with shortfallRatio (how
+ *  outmatched the defense was) — resource loss, how many buildings take
+ *  damage, and, past CASUALTY_SHORTFALL, villagers lost outright, up to the
+ *  entire population at shortfallRatio 1.0 (zero defense). This is
+ *  deliberate: a raid you were braced for costs little, one you had no
+ *  answer for can wipe the colony outright. Defense strictly improves the
+ *  outcome at every level — this never reintroduces the rejected pattern
+ *  of raid *strength* reacting to the colony (see rollTypeAndStrength). */
+function resolveOne(state: GameState, scheduled: ScheduledIncursion): ResolveResult {
   const defenseValue = computeDefenseAgainst(state, scheduled.type);
   const id = `incursion-${scheduled.index}`;
 
   if (defenseValue >= scheduled.strength) {
     return {
-      resources: state.resources,
-      modules: state.modules,
-      morale: Math.min(100, state.survival.morale + MORALE.REPELLED_BONUS),
+      state: {
+        ...state,
+        survival: { ...state.survival, morale: Math.min(100, state.survival.morale + MORALE.REPELLED_BONUS) },
+      },
       record: {
         id,
         arrivalAt: scheduled.arrivalAt,
@@ -128,23 +133,39 @@ function resolveOne(
   }
 
   let modules = state.modules;
-  let damagedModuleType: ModuleType | undefined;
+  const damagedModuleTypes: ModuleType[] = [];
   if (shortfallRatio > INCURSIONS.STRUCTURE_DAMAGE_SHORTFALL) {
     const candidates = modules.filter((m) => !m.damaged);
-    if (candidates.length > 0) {
-      const pickRoll = seededRng(state.seed, scheduled.index * 100 + SALT_DAMAGE)();
-      const target = candidates[Math.floor(pickRoll * candidates.length)];
-      damagedModuleType = target.type;
-      modules = modules.map((m) => (m.id === target.id ? { ...m, damaged: true } : m));
+    // How many buildings take damage scales with severity too -- at least
+    // one, up to all of them as the shortfall approaches total.
+    const damageCount = Math.min(candidates.length, Math.max(1, Math.round(shortfallRatio * candidates.length)));
+    const pool = [...candidates];
+    const targetIds = new Set<string>();
+    for (let i = 0; i < damageCount && pool.length > 0; i++) {
+      const pickRoll = seededRng(state.seed, scheduled.index * 100 + SALT_DAMAGE + i)();
+      const target = pool.splice(Math.floor(pickRoll * pool.length), 1)[0];
+      targetIds.add(target.id);
+      damagedModuleTypes.push(target.type);
     }
+    modules = modules.map((m) => (targetIds.has(m.id) ? { ...m, damaged: true } : m));
   }
 
   const morale = Math.max(0, state.survival.morale - MORALE.BREACH_HIT_PER_LOSS_PCT * lossPct);
 
+  let next: GameState = { ...state, resources, modules, survival: { ...state.survival, morale } };
+  let colonistsLost = 0;
+  if (shortfallRatio > INCURSIONS.CASUALTY_SHORTFALL) {
+    const casualtyFraction = (shortfallRatio - INCURSIONS.CASUALTY_SHORTFALL) / (1 - INCURSIONS.CASUALTY_SHORTFALL);
+    const toLose = Math.round(casualtyFraction * next.colonists.total);
+    const before = next.colonists.total;
+    for (let i = 0; i < toLose && next.colonists.total > 0; i++) {
+      next = removeOneColonist(next);
+    }
+    colonistsLost = before - next.colonists.total;
+  }
+
   return {
-    resources,
-    modules,
-    morale,
+    state: next,
     record: {
       id,
       arrivalAt: scheduled.arrivalAt,
@@ -155,7 +176,8 @@ function resolveOne(
       defenseValue,
       lossPct,
       resourceLosses,
-      damagedModuleType,
+      ...(damagedModuleTypes.length > 0 && { damagedModuleTypes }),
+      ...(colonistsLost > 0 && { colonistsLost }),
     },
   };
 }
@@ -174,23 +196,16 @@ export interface AdvanceResult {
 export function advanceIncursions(state: GameState, windowEnd: number): AdvanceResult {
   let index = state.nextIncursionIndex;
   let arrivalAt = state.nextIncursionArrivalAt;
-  let resources = state.resources;
-  let modules = state.modules;
+  let current = state;
   let incursions = state.incursions;
-  let morale = state.survival.morale;
   const resolved: Incursion[] = [];
 
   while (arrivalAt <= windowEnd) {
     const scheduled: ScheduledIncursion = { index, arrivalAt, ...rollTypeAndStrength(state.seed, index) };
 
-    if (modules.some((m) => m.type === 'sentinelArray' && !m.damaged)) {
-      const outcome = resolveOne(
-        { resources, modules, seed: state.seed, military: state.military, survival: { ...state.survival, morale } },
-        scheduled,
-      );
-      resources = outcome.resources;
-      modules = outcome.modules;
-      morale = outcome.morale;
+    if (current.modules.some((m) => m.type === 'sentinelArray' && !m.damaged)) {
+      const outcome = resolveOne(current, scheduled);
+      current = outcome.state;
       incursions = [...incursions, outcome.record].slice(-INCURSIONS.HISTORY_LIMIT);
       resolved.push(outcome.record);
     }
@@ -198,19 +213,16 @@ export function advanceIncursions(state: GameState, windowEnd: number): AdvanceR
     const dayCount = dayCountAt(state.createdAt, arrivalAt);
     index += 1;
     arrivalAt = nextArrivalAfter(state.seed, index, arrivalAt, dayCount);
+
+    // A catastrophic breach can wipe the population outright -- nothing
+    // left to raid further in this same window, so stop here rather than
+    // rolling more incursions against a colony that no longer exists.
+    if (current.colonists.total <= 0) break;
   }
 
   if (index === state.nextIncursionIndex) return { state, resolved };
   return {
-    state: {
-      ...state,
-      resources,
-      modules,
-      incursions,
-      survival: { ...state.survival, morale },
-      nextIncursionIndex: index,
-      nextIncursionArrivalAt: arrivalAt,
-    },
+    state: { ...current, incursions, nextIncursionIndex: index, nextIncursionArrivalAt: arrivalAt },
     resolved,
   };
 }

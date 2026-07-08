@@ -7,6 +7,7 @@ import { RadarGlyph } from './RadarGlyph';
 import { SettingsScreen } from './SettingsScreen';
 import { OfflineSummaryModal } from './OfflineSummaryModal';
 import { BuildMenuScreen } from './BuildMenuScreen';
+import { TabBar, type TabId } from './TabBar';
 import { Toast } from './Toast';
 
 export function App() {
@@ -15,7 +16,7 @@ export function App() {
   const gameOver = useGameStore((s) => s.game.gameOver);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [buildMenuOpen, setBuildMenuOpen] = useState(false);
-  const [chronicleOpen, setChronicleOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabId>('outpost');
 
   // 'system' means "no explicit override" — let the prefers-color-scheme
   // media query in CSS decide; otherwise stamp the choice for CSS to read.
@@ -34,21 +35,23 @@ export function App() {
     );
   }
   // Terminal: a fallen colony blocks everything else — no offline summary,
-  // no settings/build sheets left open behind it, just found anew.
+  // no settings/build sheets or tab bar left navigable, just found anew.
   if (gameOver) return <GameOverScreen />;
 
   return (
-    <>
-      <OutpostScreen
-        onOpenSettings={() => setSettingsOpen(true)}
-        onOpenBuildMenu={() => setBuildMenuOpen(true)}
-        onOpenChronicle={() => setChronicleOpen(true)}
-      />
+    <div className="app-shell">
+      <div className="app-content">
+        {activeTab === 'outpost' ? (
+          <OutpostScreen onOpenSettings={() => setSettingsOpen(true)} onOpenBuildMenu={() => setBuildMenuOpen(true)} />
+        ) : (
+          <ChronicleScreen />
+        )}
+      </div>
+      <TabBar active={activeTab} onSelect={setActiveTab} />
       {settingsOpen && <SettingsScreen onClose={() => setSettingsOpen(false)} />}
       {buildMenuOpen && <BuildMenuScreen onClose={() => setBuildMenuOpen(false)} />}
-      {chronicleOpen && <ChronicleScreen onClose={() => setChronicleOpen(false)} />}
       <OfflineSummaryModal />
       <Toast />
-    </>
+    </div>
   );
 }
