@@ -66,6 +66,16 @@ function migrate(raw: unknown): GameState | null {
         nextIncursionIndex: save.nextIncursionIndex ?? 0,
         nextIncursionArrivalAt: save.nextIncursionArrivalAt ?? firstIncursionArrival(save.createdAt ?? save.lastActiveAt),
         military: save.military ?? { soldiers: priorTrainingCampWorkers, archers: 0, training: [] },
+        // A save from before morale/defeat existed only had { dayCount } (or
+        // an unused { integrity, dayCount }) -- back-fill a fresh, un-defeated
+        // baseline rather than treating an old colony as already in crisis.
+        survival: {
+          dayCount: save.survival?.dayCount ?? 0,
+          morale: save.survival?.morale ?? 100,
+          starvingSeconds: save.survival?.starvingSeconds ?? 0,
+          defectionProgress: save.survival?.defectionProgress ?? 0,
+        },
+        gameOver: save.gameOver ?? null,
       };
     }
     // future: case 1 → transform to 2, fall through …

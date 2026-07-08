@@ -35,7 +35,8 @@ export function createNewGame(now = Date.now()): GameState {
     nextIncursionIndex: 0,
     nextIncursionArrivalAt: firstIncursionArrival(now),
     military: { soldiers: 0, archers: 0, training: [] },
-    survival: { integrity: 100, dayCount: 0 },
+    survival: { dayCount: 0, morale: 100, starvingSeconds: 0, defectionProgress: 0 },
+    gameOver: null,
     prestige: { level: 0, multiplier: 1 },
     settings: { hapticsEnabled: true, theme: 'system', onboardingDismissed: false },
   };

@@ -313,6 +313,21 @@ body {
   color: var(--text-dim);
 }
 
+.radar-morale {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text-dim);
+}
+
+.radar-morale-warn {
+  color: var(--warn);
+}
+
+.radar-morale-danger {
+  color: var(--danger);
+}
+
 /* ── Module grid ─────────────────────────────────────────────────────────── */
 .module-grid {
   /* Plain flex column, not CSS Grid: every real module card is already
@@ -869,4 +884,55 @@ body {
   .toast {
     animation: none;
   }
+}
+
+/* ── Game over ────────────────────────────────────────────────────────────── */
+.game-over {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 32px 24px;
+  text-align: center;
+  background: var(--bg);
+}
+
+.game-over-title {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--danger);
+}
+
+.game-over-message {
+  max-width: 320px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+
+.game-over-stats {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.game-over-button {
+  margin-top: 8px;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 10px;
+  background: var(--accent);
+  color: var(--bg);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.game-over-button:active {
+  opacity: 0.85;
 }

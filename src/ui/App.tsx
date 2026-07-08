@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useGameStore } from '../state/store';
 import { OutpostScreen } from './OutpostScreen';
+import { GameOverScreen } from './GameOverScreen';
 import { RadarGlyph } from './RadarGlyph';
 import { SettingsScreen } from './SettingsScreen';
 import { OfflineSummaryModal } from './OfflineSummaryModal';
@@ -10,6 +11,7 @@ import { Toast } from './Toast';
 export function App() {
   const ready = useGameStore((s) => s.ready);
   const theme = useGameStore((s) => s.game.settings.theme);
+  const gameOver = useGameStore((s) => s.game.gameOver);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [buildMenuOpen, setBuildMenuOpen] = useState(false);
 
@@ -29,6 +31,10 @@ export function App() {
       </div>
     );
   }
+  // Terminal: a fallen colony blocks everything else — no offline summary,
+  // no settings/build sheets left open behind it, just found anew.
+  if (gameOver) return <GameOverScreen />;
+
   return (
     <>
       <OutpostScreen

@@ -14,6 +14,7 @@ import { GLOBAL, MODULES, POWER, productionAtLevel } from '../config/halcyon-con
 import { refreshCapNumbers } from './caps';
 import { advanceIncursions } from './incursions';
 import { advanceTraining } from './military';
+import { advanceMorale, checkGameOver } from './morale';
 import { computePower } from './power';
 import type { GameState, Incursion, ResourceId } from './types';
 
@@ -45,7 +46,7 @@ export interface TickResult {
 }
 
 export function tick(state: GameState, dtSeconds: number): TickResult {
-  if (dtSeconds <= 0) return { state, resolvedIncursions: [] };
+  if (dtSeconds <= 0 || state.gameOver) return { state, resolvedIncursions: [] };
 
   const rations = state.resources.rations;
   const working = state.colonists.assigned;
@@ -57,7 +58,8 @@ export function tick(state: GameState, dtSeconds: number): TickResult {
   const rationsAmount = Math.max(0, rations.amount - upkeep);
   const hungry = rationsAmount <= 0;
   const hungerMult = hungry ? GLOBAL.HUNGRY_PRODUCTION_MULT : 1;
-  const powerMult = computePower(state).powered ? 1 : POWER.UNDERPOWERED_THROTTLE;
+  const powered = computePower(state).powered;
+  const powerMult = powered ? 1 : POWER.UNDERPOWERED_THROTTLE;
   // See currentProductionMultiplier's comment: the worse single penalty,
   // not both stacked — a starving AND underpowered colony must still be
   // mathematically able to claw back out via more/better-assigned workers.
@@ -83,14 +85,23 @@ export function tick(state: GameState, dtSeconds: number): TickResult {
 
   const windowEnd = state.lastActiveAt + dtSeconds * 1000;
   const dayCount = Math.max(0, Math.floor((windowEnd - state.createdAt) / (GLOBAL.DAY_LENGTH_SECONDS * 1000)));
+  const withResources: GameState = {
+    ...state,
+    resources,
+    lastActiveAt: windowEnd,
+    survival: { ...state.survival, dayCount },
+  };
+  // Morale reacts to this step's hunger/power state before anything else
+  // moves it further (a breach's morale hit, a repel's bonus).
+  const withMorale = advanceMorale(withResources, dtSeconds, hungry, powered);
   // Training completes before incursions resolve in this same window — if a
   // batch finishes training right as a raid arrives, they've already
   // graduated in time to help defend it.
-  const trained = advanceTraining(
-    { ...state, resources, lastActiveAt: windowEnd, survival: { ...state.survival, dayCount } },
-    windowEnd,
-  );
+  const trained = advanceTraining(withMorale, windowEnd);
   const advanced = advanceIncursions(trained, windowEnd);
+  // Checked last: a breach/repel this step can itself be what tips morale
+  // to 0 or (via defection) population to 0.
+  const final = checkGameOver(advanced.state);
 
-  return { state: refreshCapNumbers(advanced.state), resolvedIncursions: advanced.resolved };
+  return { state: refreshCapNumbers(final), resolvedIncursions: advanced.resolved };
 }

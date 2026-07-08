@@ -5,7 +5,7 @@
  */
 import { useEffect } from 'react';
 import { useGameStore } from '../state/store';
-import { INCURSIONS, MANUAL_TAP_YIELD, MODULES, POWER, SENTINEL, productionAtLevel } from '../config/halcyon-config';
+import { INCURSIONS, MANUAL_TAP_YIELD, MODULES, MORALE, POWER, SENTINEL, productionAtLevel } from '../config/halcyon-config';
 import { BUILDABLE_MODULE_TYPES, canAfford, getModuleCost, getRepairCost } from '../engine/build';
 import { computeDefense, computeDefenseAgainst } from '../engine/defense';
 import { peekUpcomingIncursions } from '../engine/incursions';
@@ -121,6 +121,7 @@ export function OutpostScreen({ onOpenSettings, onOpenBuildMenu }: OutpostScreen
   const detailedIntel = watchtowerLevel >= SENTINEL.DETAILED_INTEL_LEVEL;
   const compositionIntel = watchtowerLevel >= SENTINEL.COMPOSITION_INTEL_LEVEL;
   const defense = nextIncursion ? computeDefenseAgainst(game, nextIncursion.type) : computeDefense(game);
+  const morale = game.survival.morale;
 
   return (
     <div className="outpost">
@@ -226,6 +227,14 @@ export function OutpostScreen({ onOpenSettings, onOpenBuildMenu }: OutpostScreen
         <p className="radar-defense">
           🛡️ Defense rating: {defense} — train villagers as Soldiers or Archers, or build a Ballista, Palisade, or
           Ward Stone to arm your defenses.
+        </p>
+        <p
+          className={`radar-morale${
+            morale <= MORALE.DEFECTION_THRESHOLD ? ' radar-morale-danger' : morale <= 50 ? ' radar-morale-warn' : ''
+          }`}
+        >
+          💗 Morale: {Math.round(morale)}/100
+          {morale <= MORALE.DEFECTION_THRESHOLD ? ' — villagers are losing hope and starting to leave!' : ''}
         </p>
       </section>
 

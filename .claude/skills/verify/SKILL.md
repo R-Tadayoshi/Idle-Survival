@@ -543,3 +543,63 @@ does *not yet* show (e.g. L1 must not match `/raid inbound — ETA/`, L2
 must not match `/most vulnerable to/`) — a positive-only assertion at
 each tier can't catch a tier boundary that leaked forward (e.g. L1
 accidentally showing L2 detail).
+
+## Morale & defeat (full loss condition)
+
+Per the user's explicit "i want the full defeat with moral and people able
+to leave etc," added a real loss condition on top of the existing
+soft-fail states (starving/underpowered just throttle production). Three
+independent defeat triggers, checked once per tick in `checkGameOver`
+(`engine/morale.ts`), most-recently-set wins (it's terminal, never
+overwritten):
+
+- **`population`**: `colonists.total <= 0` (defection whittled everyone away).
+- **`morale`**: `survival.morale <= 0`.
+- **`starvation`**: `survival.starvingSeconds >= MORALE.STARVATION_DEFEAT_SECONDS`
+  (6 continuous hours at 0 rations) -- a distinct message even though it
+  usually correlates with morale collapse too, so a player who neglected
+  food reads "your colony starved," not a generic "morale collapsed".
+
+Morale itself (`advanceMorale`) is closed-form time-based math like the
+incursion scheduler and training queue -- drains while starving/underpowered
+(worse case wins, not both stacked, same principle as the production
+throttle), recovers passively once fed+powered, takes a breach-scaled hit
+or a small repel bonus (threaded through `incursions.ts`'s `resolveOne`).
+Below `MORALE.DEFECTION_THRESHOLD` villagers start leaving
+(`removeOneColonist`, prefers idle -> in-progress trainee -> production
+module worker) at 1 per `DEFECTION_SECONDS_PER_COLONIST` of continuous
+time under threshold -- computed as a closed-form `floor(progress /
+threshold)` rather than an iterative per-second loop, so a single big
+offline-catchup tick produces the same departures as many small live ticks
+over the same window.
+
+**Once `state.gameOver` is set, `tick()` is a total no-op** (`if (dtSeconds
+<= 0 || state.gameOver) return { state, resolvedIncursions: [] }` at the
+very top) -- same object reference back out, not just "no visible
+change". `App.tsx` gates on `game.gameOver` before rendering `OutpostScreen`
+at all, so a defeated colony can't have its settings/build sheets or
+offline-summary modal opened behind the block. `GameOverScreen`'s "Found a
+New Colony" button is the existing `resetGame()` action, unchanged.
+
+**Test gotcha specific to this system:** `advanceMorale(state, dt, hungry,
+powered)` evaluates the defection threshold against morale *after* this
+call's own delta is applied, not the incoming value. A test that seeds
+`survival.morale` exactly at `DEFECTION_THRESHOLD` and then calls
+`advanceMorale(..., hungry=false, powered=true)` will see morale *recover*
+past the threshold within that same call (the positive `RECOVER_PER_SEC`
+delta), silently skipping defection -- looks like a defection bug, isn't
+one. Use `hungry=true` (morale draining, staying under threshold
+throughout the call) to actually isolate the defection math.
+
+**A fresh colony is underpowered by default** (no Reactor yet, per the
+Phase 4 gotcha above) — its morale ticks down slightly from 100 within the
+first second of the live loop. Don't assert `morale === 100` after any
+real page load/reset; assert `>= 99` ("restored to full") instead.
+
+**Doctoring a save with `gameOver` set directly** (`readSave()` /
+`save.gameOver = { reason, at: Date.now() }` / `writeSave()` / reload) is
+the practical way to E2E-test the terminal screen without actually playing
+a colony to death -- same pattern as every other engine-state test in this
+file. Assert `.outpost` has zero count while `.game-over` is showing, not
+just that `.game-over` itself appeared, to catch a gate that shows both at
+once.

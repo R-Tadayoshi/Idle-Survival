@@ -16,7 +16,7 @@
  * skipped, so a new player is never blindsided offline OR live. This is
  * identical logic in both cases, per the design's fairness rule.
  */
-import { GLOBAL, INCURSIONS, incursionStrength } from '../config/halcyon-config';
+import { GLOBAL, INCURSIONS, MORALE, incursionStrength } from '../config/halcyon-config';
 import { computeDefenseAgainst } from './defense';
 import type { GameState, Incursion, IncursionType, ModuleType, ResourceId } from './types';
 
@@ -120,11 +120,12 @@ export function peekUpcomingIncursions(state: GameState, horizonEndAt: number, m
 interface ResolveResult {
   resources: GameState['resources'];
   modules: GameState['modules'];
+  morale: number;
   record: Incursion;
 }
 
 function resolveOne(
-  state: Pick<GameState, 'resources' | 'modules' | 'seed' | 'military'>,
+  state: Pick<GameState, 'resources' | 'modules' | 'seed' | 'military' | 'survival'>,
   scheduled: ScheduledIncursion,
 ): ResolveResult {
   const defenseValue = computeDefenseAgainst(state, scheduled.type);
@@ -134,6 +135,7 @@ function resolveOne(
     return {
       resources: state.resources,
       modules: state.modules,
+      morale: Math.min(100, state.survival.morale + MORALE.REPELLED_BONUS),
       record: {
         id,
         arrivalAt: scheduled.arrivalAt,
@@ -172,9 +174,12 @@ function resolveOne(
     }
   }
 
+  const morale = Math.max(0, state.survival.morale - MORALE.BREACH_HIT_PER_LOSS_PCT * lossPct);
+
   return {
     resources,
     modules,
+    morale,
     record: {
       id,
       arrivalAt: scheduled.arrivalAt,
@@ -207,15 +212,20 @@ export function advanceIncursions(state: GameState, windowEnd: number): AdvanceR
   let resources = state.resources;
   let modules = state.modules;
   let incursions = state.incursions;
+  let morale = state.survival.morale;
   const resolved: Incursion[] = [];
 
   while (arrivalAt <= windowEnd) {
     const scheduled: ScheduledIncursion = { index, arrivalAt, ...rollTypeAndStrength(state.seed, index) };
 
     if (modules.some((m) => m.type === 'sentinelArray' && !m.damaged)) {
-      const outcome = resolveOne({ resources, modules, seed: state.seed, military: state.military }, scheduled);
+      const outcome = resolveOne(
+        { resources, modules, seed: state.seed, military: state.military, survival: { ...state.survival, morale } },
+        scheduled,
+      );
       resources = outcome.resources;
       modules = outcome.modules;
+      morale = outcome.morale;
       incursions = [...incursions, outcome.record].slice(-INCURSIONS.HISTORY_LIMIT);
       resolved.push(outcome.record);
     }
@@ -227,7 +237,15 @@ export function advanceIncursions(state: GameState, windowEnd: number): AdvanceR
 
   if (index === state.nextIncursionIndex) return { state, resolved };
   return {
-    state: { ...state, resources, modules, incursions, nextIncursionIndex: index, nextIncursionArrivalAt: arrivalAt },
+    state: {
+      ...state,
+      resources,
+      modules,
+      incursions,
+      survival: { ...state.survival, morale },
+      nextIncursionIndex: index,
+      nextIncursionArrivalAt: arrivalAt,
+    },
     resolved,
   };
 }

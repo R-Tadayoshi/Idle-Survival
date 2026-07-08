@@ -156,6 +156,33 @@ export const MILITARY = {
   ARCHER_VALUE: 6,   // defense contributed per trained Archer (before matchup)
 } as const;
 
+// ── Morale & defeat ───────────────────────────────────────────────────────────
+// Multiple independent ways to lose, matching a real survival game rather
+// than "just don't run out of one resource": sustained starvation, a
+// collapsed population (everyone left), or morale itself bottoming out.
+// Morale is a slow-moving vibe check on the colony as a whole — it drains
+// while starving or underpowered, drains a bit more on every raid that
+// breaches (scaled by how bad the loss was), recovers on its own once fed
+// + powered, and gets a small boost for repelling a raid outright (the same
+// "reward investment, don't punish it" principle as the incursion curve).
+export const MORALE = {
+  DRAIN_PER_SEC_STARVING: 0.05,     // ~33 min to fully drain from 100 on starvation alone
+  DRAIN_PER_SEC_UNDERPOWERED: 0.02, // slower burn than outright starving
+  RECOVER_PER_SEC: 0.03,            // passive regen once fed + powered
+  BREACH_HIT_PER_LOSS_PCT: 40,      // morale lost = lossPct * this (lossPct maxes at MAX_LOSS_PCT above)
+  REPELLED_BONUS: 3,                // small morale reward for a successful defense
+
+  // Below this, villagers start slipping away (see engine/morale.ts) — a
+  // warning phase before the harder morale-collapse defeat below.
+  DEFECTION_THRESHOLD: 30,
+  DEFECTION_SECONDS_PER_COLONIST: 600, // 1 villager leaves per 10 continuous minutes under threshold
+
+  // Continuous (uninterrupted) time at 0 rations before starvation itself
+  // ends the game, independent of morale -- gives a distinct "you starved"
+  // message rather than always funneling through "morale collapsed".
+  STARVATION_DEFEAT_SECONDS: 6 * 60 * 60,
+} as const;
+
 // ── Prestige (implement last) ────────────────────────────────────────────────
 export const PRESTIGE = {
   UNLOCK_DAY_COUNT: 30,          // eligible to re-found after surviving 30 days

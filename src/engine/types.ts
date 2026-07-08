@@ -49,6 +49,17 @@ export interface Military {
   training: TrainingOrder[];
 }
 
+/** Why the colony fell. Distinct reasons even though they overlap in
+ *  practice (starvation drains morale too) -- a player who neglects food
+ *  should read "your colony starved," not a generic "morale collapsed". */
+export type DefeatReason = 'population' | 'morale' | 'starvation';
+
+export interface GameOverState {
+  reason: DefeatReason;
+  /** epoch ms when the defeat condition was detected */
+  at: number;
+}
+
 export interface Incursion {
   id: string;
   /** epoch ms, from the deterministic seed-based schedule; also the moment
@@ -91,7 +102,24 @@ export interface GameState {
   nextIncursionIndex: number;
   nextIncursionArrivalAt: number;
   military: Military;
-  survival: { integrity: number; dayCount: number };
+  survival: {
+    dayCount: number;
+    /** 0-100 colony-wide morale. Drains while starving/underpowered, hit
+     *  further by a breached raid (scaled by how bad the loss was),
+     *  recovers passively once fed + powered, nudged up by a repelled raid. */
+    morale: number;
+    /** continuous seconds at 0 rations; resets to 0 the moment rations rise
+     *  above 0 -- an independent starvation-defeat clock, not derived from
+     *  morale (see MORALE.STARVATION_DEFEAT_SECONDS). */
+    starvingSeconds: number;
+    /** seconds accumulated while morale sits at/under MORALE.DEFECTION_THRESHOLD;
+     *  every time it crosses DEFECTION_SECONDS_PER_COLONIST, one villager
+     *  leaves and the counter carries its remainder (see engine/morale.ts). */
+    defectionProgress: number;
+  };
+  /** set once a defeat condition is detected; terminal -- tick() stops
+   *  simulating the colony entirely once this is non-null (see tick.ts). */
+  gameOver: GameOverState | null;
   prestige: { level: number; multiplier: number };
   settings: { hapticsEnabled: boolean; theme: ThemePreference; onboardingDismissed: boolean };
 }
