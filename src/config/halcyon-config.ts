@@ -106,9 +106,20 @@ export const INCURSIONS = {
   // Repair cost for a damaged module = its OWN level-1 build cost × this.
   REPAIR_COST_MULT: 0.5,
 
-  // strength(n) = BASE * GROWTH^n  (n = incursion index)
+  // strength(n) = max(BASE * GROWTH^n, currentColonyDefense * POWER_SCALING_FACTOR)
+  // The first term is a gentle baseline ramp for the early game, when
+  // there's no defense built yet to measure. The second term is what
+  // actually keeps the game challenging for a colony that turtles up
+  // between raids (they're only ~BASE_INTERVAL_HOURS apart) — without it,
+  // defense investment trivially outpaces a curve that only grows per
+  // raid index, since defenseValue scales linearly per level with no cap.
+  // colonyDefense uses the flat, type-agnostic computeDefense(), not a
+  // matchup-adjusted number, so it doesn't matter which type shows up —
+  // a raid is scaled to your OVERALL investment, and matchups (below)
+  // then decide whether a *specific* defense lineup holds against it.
   BASE_STRENGTH: 12,
   STRENGTH_GROWTH: 1.22,
+  POWER_SCALING_FACTOR: 0.85,
 
   // Breach losses
   LOSS_FACTOR: 0.6,        // loss% = shortfallRatio * LOSS_FACTOR ...

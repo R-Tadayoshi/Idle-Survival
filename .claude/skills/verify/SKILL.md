@@ -371,3 +371,48 @@ climbs) before trusting that two throttles compose safely.
   `.build-row`) rather than a modifier on the shared class, so "buildable"
   and "locked" stay distinguishable by selector, not just by reading
   `disabled`/`aria-disabled`.
+
+## Post-Phase-5 balance fix: raid strength scaling with colony power
+
+User-reported ("far too easy — next raid is strength 15, I already have 66
+defense without using the Training Camp") exposed a real gap between the
+spec ("frequency/strength scales with colony power / day count") and the
+Phase 5 implementation, which only scaled strength with raid *index*
+(`12 * 1.22^n`). Since defenseValue scales linearly per level with no cap,
+and raids are only ~3h apart on average, a colony that turtles between
+raids trivially outpaces a curve that has no idea how strong it's gotten.
+
+Fixed in `engine/incursions.ts`'s `rollTypeAndStrength`:
+`strength = max(baselineCurve(index), round(computeDefense(currentModules) * INCURSIONS.POWER_SCALING_FACTOR))`
+— the baseline carries the early game (no defense built yet), and the
+power term takes over once a colony's flat, type-agnostic defense total
+exceeds what the index curve alone would produce. Uses the flat
+`computeDefense()` (not the type/power-adjusted `computeDefenseAgainst()`)
+deliberately: the raid's *difficulty* is scaled to overall investment, but
+which *specific* defenses you have (matchups, power) still decides whether
+a given raid is actually survivable — so a lopsided defense (all Ballista,
+no Ward Stone) can still lose to an off-type raid even at "fair" strength.
+
+Two call sites needed the current-state defense number threaded through
+(previously `rollTypeAndStrength` only took `seed`/`index`, pure):
+`peekUpcomingIncursions` computes it once from the state passed in (a
+"if nothing changes from here" projection for every peeked future
+incursion — doesn't try to forecast growth); `advanceIncursions` recomputes
+it **inside** the resolution loop from the loop's local `modules` variable,
+not the batch's starting snapshot — so an earlier incursion's structure
+damage within the same offline-catchup window correctly lowers the next
+one's scaled difficulty, same as it would live.
+
+**Verification pattern for any future balance tuning:** don't just check
+the formula in isolation — reproduce the reported *scenario* directly
+(`unit-incursions.mts`'s "turtling no longer trivializes raids" test:
+build up ~90 defense via passive modules only, zero Training Camp workers,
+matching what was reported; assert the resolved strength is both `>
+baseline*2` and tracks `computeDefense() * POWER_SCALING_FACTOR`) — a
+narrow unit test on the formula alone wouldn't have caught that the
+*existing* test suite's own defense-building test cases would also need
+their hardcoded strength expectations updated (one did: 12 → 15, once its
+3-defender setup started exceeding the baseline curve). Grep existing
+tests for hardcoded incursion strength numbers whenever the formula
+changes, the same way a resource-cost or production-rate constant change
+requires re-checking every phase's hardcoded expectations.

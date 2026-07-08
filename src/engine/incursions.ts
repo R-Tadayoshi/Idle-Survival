@@ -17,7 +17,7 @@
  * identical logic in both cases, per the design's fairness rule.
  */
 import { GLOBAL, INCURSIONS, incursionStrength } from '../config/halcyon-config';
-import { computeDefenseAgainst } from './defense';
+import { computeDefense, computeDefenseAgainst } from './defense';
 import type { GameState, Incursion, IncursionType, ModuleType, ResourceId } from './types';
 
 const TYPE_WEIGHTS = INCURSIONS.TYPE_WEIGHTS as Record<IncursionType, number>;
@@ -87,21 +87,35 @@ export interface ScheduledIncursion {
   type: IncursionType;
 }
 
-function rollTypeAndStrength(seed: number, index: number): { type: IncursionType; strength: number } {
+/** strength = whichever is higher: the gentle baseline ramp (carries the
+ *  early game, before there's any defense to measure), or the colony's
+ *  current flat defense investment scaled down slightly — see
+ *  INCURSIONS.POWER_SCALING_FACTOR's comment in config for why: without
+ *  this, a colony that turtles up between raids (they're hours apart)
+ *  trivially outpaces a curve that only grows per raid index. */
+function rollTypeAndStrength(
+  seed: number,
+  index: number,
+  colonyDefense: number,
+): { type: IncursionType; strength: number } {
   const typeRoll = seededRng(seed, index * 100 + SALT_TYPE)();
-  return { type: pickWeighted(typeRoll, TYPE_WEIGHTS), strength: incursionStrength(index) };
+  const strength = Math.max(incursionStrength(index), Math.round(colonyDefense * INCURSIONS.POWER_SCALING_FACTOR));
+  return { type: pickWeighted(typeRoll, TYPE_WEIGHTS), strength };
 }
 
 /** Read-only preview of upcoming incursions within `horizonEndAt`, without
  *  resolving or mutating anything — purely for the threat-radar UI. Walks
- *  the same recurrence forward from the current cursor. */
+ *  the same recurrence forward from the current cursor. Uses the colony's
+ *  *current* defense for every peeked entry — a simple "if nothing changes
+ *  from here" projection rather than trying to forecast future growth. */
 export function peekUpcomingIncursions(state: GameState, horizonEndAt: number, maxCount = 10): ScheduledIncursion[] {
   const results: ScheduledIncursion[] = [];
   let index = state.nextIncursionIndex;
   let arrivalAt = state.nextIncursionArrivalAt;
+  const colonyDefense = computeDefense(state);
 
   while (arrivalAt <= horizonEndAt && results.length < maxCount) {
-    results.push({ index, arrivalAt, ...rollTypeAndStrength(state.seed, index) });
+    results.push({ index, arrivalAt, ...rollTypeAndStrength(state.seed, index, colonyDefense) });
     const dayCount = dayCountAt(state.createdAt, arrivalAt);
     index += 1;
     arrivalAt = nextArrivalAfter(state.seed, index, arrivalAt, dayCount);
@@ -202,7 +216,12 @@ export function advanceIncursions(state: GameState, windowEnd: number): AdvanceR
   const resolved: Incursion[] = [];
 
   while (arrivalAt <= windowEnd) {
-    const scheduled: ScheduledIncursion = { index, arrivalAt, ...rollTypeAndStrength(state.seed, index) };
+    // Colony defense as of *this* point in the chronological replay — not
+    // the batch's starting state, so an earlier incursion's structure
+    // damage (or a build that happened before this arrival, live) is
+    // already reflected in the next one's difficulty.
+    const colonyDefense = computeDefense({ modules });
+    const scheduled: ScheduledIncursion = { index, arrivalAt, ...rollTypeAndStrength(state.seed, index, colonyDefense) };
 
     if (modules.some((m) => m.type === 'sentinelArray' && !m.damaged)) {
       const outcome = resolveOne({ resources, modules, seed: state.seed }, scheduled);
