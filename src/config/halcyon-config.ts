@@ -68,7 +68,7 @@ export const MODULES = {
 
   // Defense & intel
   trainingCamp:  { name: 'Training Camp',   buildCost: { scrap: 90, ore: 40 },           powerDemand: 3, maxWorkers: 20 },      // throughput cap: how many villagers can be training at once (see MILITARY config)
-  sentinelArray: { name: 'Watchtower',      buildCost: { scrap: 100, ore: 50 },          powerDemand: 4 },
+  sentinelArray: { name: 'Watchtower',      buildCost: { scrap: 100, ore: 50 },          powerDemand: 4, maxWorkers: 3 }, // workers here are Scouts (see SENTINEL.PEEK_COUNT_PER_SCOUT), not production
   turret:        { name: 'Ballista',        buildCost: { scrap: 80, ore: 40 },           defenseValue: 15, powerDemand: 3 },
   perimeterWall: { name: 'Palisade',        buildCost: { scrap: 50, ore: 60 },           defenseValue: 8,  powerDemand: 0 }, // passive, never unpowered
   shieldGen:     { name: 'Ward Stone',      buildCost: { scrap: 150, ore: 80, exotic: 10 }, defenseValue: 40, powerDemand: 8 }, // dead if unpowered
@@ -94,6 +94,12 @@ export const SENTINEL = {
   //      and strongest against (derived from INCURSIONS.MATCHUPS).
   DETAILED_INTEL_LEVEL: 2,
   COMPOSITION_INTEL_LEVEL: 3,
+
+  // Villagers assigned to the Watchtower work as Scouts, not production --
+  // each one pushes the schedule preview one raid further out, so a
+  // well-staffed Watchtower warns you about what's coming AFTER the next
+  // raid too, not just the immediate one.
+  PEEK_COUNT_PER_SCOUT: 1,
 } as const;
 
 // ── Incursions (scheduled, deterministic from seed) ──────────────────────────

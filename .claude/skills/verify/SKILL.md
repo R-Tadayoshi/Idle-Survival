@@ -644,3 +644,38 @@ under `POPULATION_SLOTS_STEP` (10), so every existing Phase 2/reset/
 training-camp assertion (all written against a fresh ~3-colonist, Lv.1
 scenario) evaluates to the exact same numbers as before — verified by
 re-running the full suite rather than assuming it from the math.
+
+## Scouts: Watchtower workers reveal further into the raid schedule
+
+Partial delivery of the user's "population become sentinels, give info
+about the world" idea — scoped down deliberately (see reasoning below)
+rather than building a full kingdoms/diplomacy layer. The Watchtower
+(`sentinelArray`) gained `maxWorkers: 3`; villagers assigned to it are
+Scouts, plumbed through the *exact same* generic worker-slot stepper
+`ModuleCard` already used for production modules (`hasProduction` renamed/
+generalized to `hasWorkerSlots = 'maxWorkers' in def`, stepper label
+`hasProduction ? 'Villagers' : 'Scouts'`) rather than a bespoke card --
+Watchtower has no `produces`/`ratePerWorker` so none of the production-
+specific bits (rate calc, tap-to-extract) activate for it, just the
+assign/unassign stepper. Each Scout adds `SENTINEL.PEEK_COUNT_PER_SCOUT`
+(1) to `peekUpcomingIncursions`'s `maxCount` -- already a parameter on
+that function, no engine change needed -- surfaced as a terse `(+N more
+scouted)` suffix on the existing radar-hint line.
+
+**Deliberately did NOT add flavor-only "what do kingdoms plan" lore
+text.** The user's very next message after Watchtower tiers shipped was
+"remove the line of text of explanation... it takes up too much space" --
+adding a new always-visible paragraph of pure flavor with no mechanical
+payoff would directly contradict that feedback. Scouts extending the
+schedule preview is the mechanically real interpretation of "info about
+the world" (see more of what's coming, not just flavor text about it);
+skipped inventing a full kingdoms/diplomacy data model since nothing
+elsewhere in the codebase hints at one and it would be pure speculation
+about what the user actually wants there.
+
+Test this by building/leveling a Watchtower via a doctored save (same
+pattern as the intel-tier tests), clicking the Scouts `+` stepper, and
+checking `.radar-hint` picks up the `(+N more scouted)` suffix -- and
+that it's absent with 0 scouts assigned, matching every pre-existing
+Phase 5 Watchtower assertion (none of which assign scouts, so none
+needed updating).

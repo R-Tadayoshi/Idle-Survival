@@ -123,9 +123,10 @@ export function OutpostScreen({ onOpenSettings, onOpenBuildMenu }: OutpostScreen
   const horizonHours = watchtower
     ? (SENTINEL.HORIZON_HOURS_BY_LEVEL[Math.min(watchtower.level, SENTINEL.HORIZON_HOURS_BY_LEVEL.length - 1)] ?? 0)
     : 0;
-  const nextIncursion = watchtower
-    ? peekUpcomingIncursions(game, Date.now() + horizonHours * 3600 * 1000, 1)[0]
-    : undefined;
+  const scoutsAssigned = watchtower?.assignedWorkers ?? 0;
+  const peekCount = 1 + scoutsAssigned * SENTINEL.PEEK_COUNT_PER_SCOUT;
+  const upcoming = watchtower ? peekUpcomingIncursions(game, Date.now() + horizonHours * 3600 * 1000, peekCount) : [];
+  const nextIncursion = upcoming[0];
   const roughIntelOnly = watchtowerLevel >= 1 && watchtowerLevel < SENTINEL.DETAILED_INTEL_LEVEL;
   const detailedIntel = watchtowerLevel >= SENTINEL.DETAILED_INTEL_LEVEL;
   const compositionIntel = watchtowerLevel >= SENTINEL.COMPOSITION_INTEL_LEVEL;
@@ -212,6 +213,7 @@ export function OutpostScreen({ onOpenSettings, onOpenBuildMenu }: OutpostScreen
                         ` Your defense: ${defense} vs incoming ${nextIncursion.strength}${defense >= nextIncursion.strength ? ' — prepared.' : ' — reinforce!'}`}
                     </>
                   )}
+                  {upcoming.length > 1 && ` (+${upcoming.length - 1} more scouted)`}
                 </p>
               ) : (
                 <p className="radar-hint">No incursions detected within scan range ({horizonHours}h).</p>
@@ -330,10 +332,11 @@ function ModuleCard({ module, idleColonists, onExtract, onAssign, onUpgrade, onR
   const game = useGameStore((s) => s.game);
   const def = MODULES[module.type];
   const hasProduction = 'produces' in def && 'ratePerWorker' in def;
-  // Training Camp (the only other maxWorkers module) renders via
-  // TrainingCampCard instead — every module reaching here with maxWorkers
-  // is a production module.
-  const maxWorkers = 'maxWorkers' in def ? effectiveMaxWorkers(def.maxWorkers, module.level, game.colonists.total) : 0;
+  // Training Camp renders via TrainingCampCard instead. The Watchtower also
+  // has maxWorkers but no production -- its workers are Scouts (see
+  // SENTINEL.PEEK_COUNT_PER_SCOUT), still a plain assign/unassign stepper.
+  const hasWorkerSlots = 'maxWorkers' in def;
+  const maxWorkers = hasWorkerSlots ? effectiveMaxWorkers(def.maxWorkers, module.level, game.colonists.total) : 0;
   const ratePerWorker = hasProduction ? productionAtLevel(def.ratePerWorker, module.level) : 0;
   // Actual rate, not the nominal one — factors in the current hunger/power
   // throttle so this matches what the player is really accruing per second,
@@ -362,6 +365,11 @@ function ModuleCard({ module, idleColonists, onExtract, onAssign, onUpgrade, onR
     effect = `+${def.colonistCapBonus * module.level} villager cap`;
   } else if ('energyOutput' in def) {
     effect = `+${def.energyOutput * module.level} power supply`;
+  } else if (module.type === 'sentinelArray') {
+    effect =
+      module.assignedWorkers > 0
+        ? `${module.assignedWorkers} Scout${module.assignedWorkers === 1 ? '' : 's'} watching the horizon`
+        : 'No scouts assigned';
   } else if ('defenseValue' in def) {
     // passive defense module (Ballista/Palisade/Ward Stone)
     effect =
@@ -389,15 +397,15 @@ function ModuleCard({ module, idleColonists, onExtract, onAssign, onUpgrade, onR
         </div>
       </div>
 
-      {hasProduction && !module.damaged && (
+      {hasWorkerSlots && !module.damaged && (
         <div className="stepper-row">
-          <span className="module-tile-sub">Villagers</span>
+          <span className="module-tile-sub">{hasProduction ? 'Villagers' : 'Scouts'}</span>
           <div className="stepper">
             <button
               className="stepper-btn"
               onClick={() => onAssign(-1)}
               disabled={module.assignedWorkers <= 0}
-              aria-label="Unassign a villager"
+              aria-label={hasProduction ? 'Unassign a villager' : 'Unassign a scout'}
             >
               −
             </button>
@@ -408,7 +416,7 @@ function ModuleCard({ module, idleColonists, onExtract, onAssign, onUpgrade, onR
               className="stepper-btn"
               onClick={() => onAssign(1)}
               disabled={module.assignedWorkers >= maxWorkers || idleColonists <= 0}
-              aria-label="Assign a villager"
+              aria-label={hasProduction ? 'Assign a villager' : 'Assign a scout'}
             >
               +
             </button>
