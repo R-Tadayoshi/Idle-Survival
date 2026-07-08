@@ -17,7 +17,7 @@
  * identical logic in both cases, per the design's fairness rule.
  */
 import { GLOBAL, INCURSIONS, incursionStrength } from '../config/halcyon-config';
-import { computeDefense, computeDefenseAgainst } from './defense';
+import { computeDefenseAgainst } from './defense';
 import type { GameState, Incursion, IncursionType, ModuleType, ResourceId } from './types';
 
 const TYPE_WEIGHTS = INCURSIONS.TYPE_WEIGHTS as Record<IncursionType, number>;
@@ -87,35 +87,29 @@ export interface ScheduledIncursion {
   type: IncursionType;
 }
 
-/** strength = whichever is higher: the gentle baseline ramp (carries the
- *  early game, before there's any defense to measure), or the colony's
- *  current flat defense investment scaled down slightly — see
- *  INCURSIONS.POWER_SCALING_FACTOR's comment in config for why: without
- *  this, a colony that turtles up between raids (they're hours apart)
- *  trivially outpaces a curve that only grows per raid index. */
-function rollTypeAndStrength(
-  seed: number,
-  index: number,
-  colonyDefense: number,
-): { type: IncursionType; strength: number } {
+/** strength is a pure function of raid index/time — deliberately NOT of the
+ *  colony's current defense. Scaling reactively to whatever's been built
+ *  punishes investment (upgrade your defense, the next raid gets harder to
+ *  match) instead of rewarding it, which kills the "getting stronger"
+ *  incentive a survival game needs. The escalation instead comes from a
+ *  faster baseline curve and tighter raid spacing (see STRENGTH_GROWTH /
+ *  BASE_INTERVAL_HOURS in config) — the world gets more dangerous on its
+ *  own schedule, and racing ahead of that curve is the actual strategy. */
+function rollTypeAndStrength(seed: number, index: number): { type: IncursionType; strength: number } {
   const typeRoll = seededRng(seed, index * 100 + SALT_TYPE)();
-  const strength = Math.max(incursionStrength(index), Math.round(colonyDefense * INCURSIONS.POWER_SCALING_FACTOR));
-  return { type: pickWeighted(typeRoll, TYPE_WEIGHTS), strength };
+  return { type: pickWeighted(typeRoll, TYPE_WEIGHTS), strength: incursionStrength(index) };
 }
 
 /** Read-only preview of upcoming incursions within `horizonEndAt`, without
  *  resolving or mutating anything — purely for the threat-radar UI. Walks
- *  the same recurrence forward from the current cursor. Uses the colony's
- *  *current* defense for every peeked entry — a simple "if nothing changes
- *  from here" projection rather than trying to forecast future growth. */
+ *  the same recurrence forward from the current cursor. */
 export function peekUpcomingIncursions(state: GameState, horizonEndAt: number, maxCount = 10): ScheduledIncursion[] {
   const results: ScheduledIncursion[] = [];
   let index = state.nextIncursionIndex;
   let arrivalAt = state.nextIncursionArrivalAt;
-  const colonyDefense = computeDefense(state);
 
   while (arrivalAt <= horizonEndAt && results.length < maxCount) {
-    results.push({ index, arrivalAt, ...rollTypeAndStrength(state.seed, index, colonyDefense) });
+    results.push({ index, arrivalAt, ...rollTypeAndStrength(state.seed, index) });
     const dayCount = dayCountAt(state.createdAt, arrivalAt);
     index += 1;
     arrivalAt = nextArrivalAfter(state.seed, index, arrivalAt, dayCount);
@@ -216,12 +210,7 @@ export function advanceIncursions(state: GameState, windowEnd: number): AdvanceR
   const resolved: Incursion[] = [];
 
   while (arrivalAt <= windowEnd) {
-    // Colony defense as of *this* point in the chronological replay — not
-    // the batch's starting state, so an earlier incursion's structure
-    // damage (or a build that happened before this arrival, live) is
-    // already reflected in the next one's difficulty.
-    const colonyDefense = computeDefense({ modules });
-    const scheduled: ScheduledIncursion = { index, arrivalAt, ...rollTypeAndStrength(state.seed, index, colonyDefense) };
+    const scheduled: ScheduledIncursion = { index, arrivalAt, ...rollTypeAndStrength(state.seed, index) };
 
     if (modules.some((m) => m.type === 'sentinelArray' && !m.damaged)) {
       const outcome = resolveOne({ resources, modules, seed: state.seed }, scheduled);

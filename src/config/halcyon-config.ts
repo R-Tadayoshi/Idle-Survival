@@ -92,9 +92,9 @@ export const SENTINEL = {
 export const INCURSIONS = {
   // First incursion won't resolve offline until a Sentinel exists (fairness).
   FIRST_INCURSION_DELAY_SECONDS: 8 * 60, // ~8 min into a fresh game
-  BASE_INTERVAL_HOURS: 3,                // avg real-time gap between incursions
+  BASE_INTERVAL_HOURS: 2,                // avg real-time gap between incursions
   INTERVAL_JITTER: 0.3,                  // ±30%, derived from seed (deterministic)
-  INTERVAL_TIGHTEN_PER_DAY: 0.03,        // interval shrinks 3% per in-game day
+  INTERVAL_TIGHTEN_PER_DAY: 0.04,        // interval shrinks 4% per in-game day
   MIN_INTERVAL_FACTOR: 0.25,             // ...but never shrinks below 25% of BASE_INTERVAL_HOURS
 
   // How many resolved incursions to keep in the save for history/battle-report
@@ -106,20 +106,15 @@ export const INCURSIONS = {
   // Repair cost for a damaged module = its OWN level-1 build cost × this.
   REPAIR_COST_MULT: 0.5,
 
-  // strength(n) = max(BASE * GROWTH^n, currentColonyDefense * POWER_SCALING_FACTOR)
-  // The first term is a gentle baseline ramp for the early game, when
-  // there's no defense built yet to measure. The second term is what
-  // actually keeps the game challenging for a colony that turtles up
-  // between raids (they're only ~BASE_INTERVAL_HOURS apart) — without it,
-  // defense investment trivially outpaces a curve that only grows per
-  // raid index, since defenseValue scales linearly per level with no cap.
-  // colonyDefense uses the flat, type-agnostic computeDefense(), not a
-  // matchup-adjusted number, so it doesn't matter which type shows up —
-  // a raid is scaled to your OVERALL investment, and matchups (below)
-  // then decide whether a *specific* defense lineup holds against it.
+  // strength(n) = BASE * GROWTH^n  (n = incursion index). Deliberately a
+  // pure function of raid count/time, NOT of the colony's current defense
+  // — scaling reactively to whatever's been built punishes upgrading
+  // instead of rewarding it. The escalation pressure comes from this curve
+  // being steep and raids being frequent (BASE_INTERVAL_HOURS above): the
+  // world gets more dangerous on its own schedule, and racing ahead of it
+  // — building defense BEFORE you need it — is the actual strategy.
   BASE_STRENGTH: 12,
-  STRENGTH_GROWTH: 1.22,
-  POWER_SCALING_FACTOR: 0.85,
+  STRENGTH_GROWTH: 1.35,
 
   // Breach losses
   LOSS_FACTOR: 0.6,        // loss% = shortfallRatio * LOSS_FACTOR ...

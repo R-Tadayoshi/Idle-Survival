@@ -372,47 +372,44 @@ climbs) before trusting that two throttles compose safely.
   and "locked" stay distinguishable by selector, not just by reading
   `disabled`/`aria-disabled`.
 
-## Post-Phase-5 balance fix: raid strength scaling with colony power
+## Post-Phase-5 balance history: raid strength must NOT react to player power
 
-User-reported ("far too easy — next raid is strength 15, I already have 66
-defense without using the Training Camp") exposed a real gap between the
-spec ("frequency/strength scales with colony power / day count") and the
-Phase 5 implementation, which only scaled strength with raid *index*
-(`12 * 1.22^n`). Since defenseValue scales linearly per level with no cap,
-and raids are only ~3h apart on average, a colony that turtles between
-raids trivially outpaces a curve that has no idea how strong it's gotten.
+User-reported the game was far too easy (next raid strength 15, already
+had 66 defense unused). First attempt: made `rollTypeAndStrength` scale
+with `max(baselineCurve(index), computeDefense(currentModules) * 0.85)` —
+technically fixed the "too easy" symptom, but the user immediately (and
+correctly) called it out as bad design: **raids getting stronger *because*
+you upgraded your defense punishes investment instead of rewarding it**,
+which kills the "getting stronger" incentive a survival/idle game runs on.
+Reverted in the very next turn.
 
-Fixed in `engine/incursions.ts`'s `rollTypeAndStrength`:
-`strength = max(baselineCurve(index), round(computeDefense(currentModules) * INCURSIONS.POWER_SCALING_FACTOR))`
-— the baseline carries the early game (no defense built yet), and the
-power term takes over once a colony's flat, type-agnostic defense total
-exceeds what the index curve alone would produce. Uses the flat
-`computeDefense()` (not the type/power-adjusted `computeDefenseAgainst()`)
-deliberately: the raid's *difficulty* is scaled to overall investment, but
-which *specific* defenses you have (matchups, power) still decides whether
-a given raid is actually survivable — so a lopsided defense (all Ballista,
-no Ward Stone) can still lose to an off-type raid even at "fair" strength.
+**The actual fix keeps `rollTypeAndStrength` a pure function of
+`(seed, index)`, unaware of the colony's current defense entirely** —
+escalation instead comes from a steeper baseline curve
+(`STRENGTH_GROWTH` 1.22 → 1.35) and tighter raid spacing
+(`BASE_INTERVAL_HOURS` 3 → 2, `INTERVAL_TIGHTEN_PER_DAY` 0.03 → 0.04). The
+world gets more dangerous on its own schedule regardless of what's built;
+racing ahead of that curve — building defense *before* you need it — is
+the actual strategy, and the same raid now has identical strength whether
+faced by an undefended colony or one with 90+ defense (only the *outcome*
+differs). `POWER_SCALING_FACTOR` config field and the defense-threading
+through `peekUpcomingIncursions`/`advanceIncursions` were removed entirely,
+not just left unused.
 
-Two call sites needed the current-state defense number threaded through
-(previously `rollTypeAndStrength` only took `seed`/`index`, pure):
-`peekUpcomingIncursions` computes it once from the state passed in (a
-"if nothing changes from here" projection for every peeked future
-incursion — doesn't try to forecast growth); `advanceIncursions` recomputes
-it **inside** the resolution loop from the loop's local `modules` variable,
-not the batch's starting snapshot — so an earlier incursion's structure
-damage within the same offline-catchup window correctly lowers the next
-one's scaled difficulty, same as it would live.
+**Lesson for any future difficulty-scaling idea:** reactive scaling to the
+player's *current* power (defense, resources, level, whatever) is an
+anti-pattern in this genre by default — it needs a very deliberate,
+explicit design reason to justify (and should probably be opt-in/telegraphed
+as its own mechanic, not baked silently into the core threat curve) before
+reaching for it again. Time/index/milestone-based escalation is the safe
+default: it's predictable, it rewards getting ahead of it, and it doesn't
+retroactively punish the player's own progress.
 
-**Verification pattern for any future balance tuning:** don't just check
-the formula in isolation — reproduce the reported *scenario* directly
-(`unit-incursions.mts`'s "turtling no longer trivializes raids" test:
-build up ~90 defense via passive modules only, zero Training Camp workers,
-matching what was reported; assert the resolved strength is both `>
-baseline*2` and tracks `computeDefense() * POWER_SCALING_FACTOR`) — a
-narrow unit test on the formula alone wouldn't have caught that the
-*existing* test suite's own defense-building test cases would also need
-their hardcoded strength expectations updated (one did: 12 → 15, once its
-3-defender setup started exceeding the baseline curve). Grep existing
-tests for hardcoded incursion strength numbers whenever the formula
-changes, the same way a resource-cost or production-rate constant change
-requires re-checking every phase's hardcoded expectations.
+**Verification pattern that caught this fast:** a direct pure-function test
+comparing two colonies at the *same* seed/index — one undefended, one with
+~90 defense — asserting `incU.strength === incT.strength` (identical
+threat) while the *outcomes* differ (`breached` vs `repelled`). This is a
+stronger regression guard than checking the formula in isolation, since it
+directly encodes the design invariant ("defense affects outcome, never the
+threat itself") rather than just today's specific numbers — keep this
+test if any future incursion-difficulty change touches this file again.
